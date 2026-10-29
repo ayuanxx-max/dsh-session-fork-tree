@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.7.8 — 2026-10-29
+
+- 归档的分叉不再产生 `+`：只有"侧栏里真实渲染出来的子会话"才计入分叉数（归档会话仍在谱系里，但不会被当作子分叉）。
+- Archived forks no longer produce a `+`: only children actually rendered in the sidebar count as forks.
+
 ## 0.7.7 — 2026-10-29
 
 - 自动命名改为"只改仍是系统默认标题的分叉"：`<父名> · 分叉N`（N = 同父子会话按创建顺序的序号）；人工改过的标题不再被覆盖。

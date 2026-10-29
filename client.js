@@ -1,5 +1,5 @@
 /**
- * Client half of @local/fork-tree — session rows form a tree from Host lineage.
+ * Client half of @local/fork-tree 鈥?session rows form a tree from Host lineage.
  *  - order: a fork sits directly under its parent (pre-order DFS); the movable
  *    slot is the row itself when its parent already holds several rows,
  *    otherwise the row's wrapper.
@@ -301,9 +301,11 @@ window.__ModuleLoader__.load({
       for (const [childId, parent] of lineage.parents) {
         if (parent !== id) continue;
         const info = lineage.byId.get(childId);
-        // Archived sessions stay in the lineage but are not displayed anywhere;
+        // Archived sessions stay in the lineage but are not rendered anywhere;
         // they must not make a fork marker appear.
         if (info !== undefined && info.displayed === false) continue;
+        // Only a row that actually exists in the sidebar counts as a fork.
+        if (!rows.has(childId)) continue;
         count += 1;
       }
       return count;
