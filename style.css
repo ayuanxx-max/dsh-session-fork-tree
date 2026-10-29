@@ -1,0 +1,91 @@
+/* Served by GET /fork-tree/style.css, refreshed every 15 s.
+   The connector is a single ╰ shape on the row itself: a vertical half-height
+   segment plus a horizontal at its bottom, rounded at the junction. Positions
+   come from measured pixel values (--ft-rail-x / --ft-elbow-w) and are
+   recomputed on resize, so the shape does not drift. */
+.ft-cell {
+  display: block;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+[data-ft-depth] {
+  position: relative !important;
+  box-sizing: border-box;
+  padding-left: calc(var(--ft-d, 0) * 16px) !important;
+  transition: background-color .12s ease;
+}
+
+/* We draw the whole ╰ with ::after only; a full-height ::before is what used to
+   leave a "|" running past the corner. */
+[data-ft-depth]::before {
+  content: none;
+}
+
+[data-ft-depth]::after {
+  content: "";
+  position: absolute;
+  left: var(--ft-rail-x, 20px);
+  top: 0;
+  width: var(--ft-elbow-w, 12px);
+  height: 50%;
+  pointer-events: none;
+  border-left: 1px solid var(--dsw-alias-label-tertiary, #9aa0a6);
+  border-bottom: 1px solid var(--dsw-alias-label-tertiary, #9aa0a6);
+  border-bottom-left-radius: 8px;
+  opacity: .8;
+  transition: opacity .12s ease, border-color .12s ease;
+}
+
+/* Ancestor-chain highlight. */
+[data-ft-hot] {
+  background-color: rgba(127, 127, 127, .08);
+}
+
+[data-ft-hot]::after {
+  opacity: 1;
+  border-left-color: var(--dsw-alias-label-primary, #ffffff);
+  border-bottom-color: var(--dsw-alias-label-primary, #ffffff);
+}
+
+/* Fork expander: a small "+" glued to the right of the session name.
+   It is appended INSIDE the title element, so hover-only row actions cannot
+   push it around; the glyph flips to "−" while the subtree is open.
+   Fixed size keeps the row geometry identical in both states. */
+.ft-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #22c55e;
+  font: 600 12px/12px system-ui, sans-serif;
+  vertical-align: -1px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ft-toggle:hover {
+  background: rgba(34, 197, 94, .14);
+}
+
+.ft-toggle[data-open="1"] {
+  border-color: rgba(34, 197, 94, .55);
+}
+
+.ft-toggle:focus-visible {
+  outline: 1px solid #22c55e;
+  outline-offset: 1px;
+}
+
+[data-ft-hidden] {
+  display: none !important;
+}

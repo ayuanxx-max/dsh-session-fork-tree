@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session Fork Tree",
+    "description": "Puts forked sessions under their parent with rounded rails, a green expander and ancestor-chain highlight."
+  }
+}

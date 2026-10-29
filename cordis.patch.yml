@@ -1,0 +1,16 @@
+# Loader patch for the dsh-session-fork-tree bundle.
+#
+# Optional configuration (all keys are optional):
+#
+#   config:
+#     renames:                      # give colliding fork titles a distinct name
+#       - sessionId: session-…
+#         title: 'Parent · fork 1'
+#     reorder:                      # persist “child right after parent” in sessionIds
+#       - sessionId: session-…
+#         afterSessionId: session-…
+#
+- insert:
+    - id: fork-tree
+      name: 'dsh-session-fork-tree'
+      config: {}
