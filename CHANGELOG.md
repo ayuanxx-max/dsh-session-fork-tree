@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.5 — 2026-10-29
+
+- 激活保护：`apply` 外层加 try/catch，插件内部任何异常都不再阻断 DSH 启动（记一条 warn，插件置为未激活）。
+- Activation guard: `apply` is wrapped in try/catch, so no internal error can block the DSH boot.
+
 ## 0.8.4 — 2026-10-29
 
 - 修复 Linux / 非 desktop profile 启动失败：宿主半不再硬依赖 `workspaceRegistry` / `workspaceController`，缺失时只跳过"顺序持久化"，不影响插件激活与 DSH 启动。

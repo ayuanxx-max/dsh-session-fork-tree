@@ -84,7 +84,7 @@ async function titleOf(ctx, sessionId) {
   return '';
 }
 
-export function apply(ctx, config) {
+function applyInner(ctx, config) {
   const settings = config && typeof config === 'object' ? config : {};
 
   // --- explicit one-shot renames (kept for manual repairs) ---
@@ -282,4 +282,16 @@ export function apply(ctx, config) {
       },
     });
   }, 'fork-tree: style route');
+}
+
+/**
+ * Activation guard: a plugin must never block the DSH boot. Any unexpected
+ * error here is logged and the plugin stays inactive; DSH keeps starting.
+ */
+export function apply(ctx, config) {
+  try {
+    applyInner(ctx, config);
+  } catch (err) {
+    console.warn('[fork-tree] activation skipped to protect the boot:', err);
+  }
 }
