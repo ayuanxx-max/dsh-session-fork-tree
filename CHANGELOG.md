@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.7.4 — 2026-10-29
+
+- 修正 0.7.3 未生效的问题：状态位不再从"我们自己的槽位单元格"推导，而是从行内定位（`[data-slot=sidebar.session.row.leading]`，退化时取标题前一个兄弟元素）；工作/等待状态切换重渲染后由观察者与巡检重新贴位移。
+- Fix the ineffective 0.7.3 shift: the leading seat is now located from the row itself (slot attribute, else the title's previous sibling) instead of from our own cell, and the offset is re-applied after state-driven re-renders.
+
 ## 0.7.3 — 2026-10-29
 
 - 子会话的"工作转圈 / 等待输入时钟"图标左移一个汉字宽度，避免与 `╰` 连接线重叠。

@@ -426,14 +426,25 @@ window.__ModuleLoader__.load({
       for (const [id, row] of rows) ensureToggle(row, id);
     }
 
-    function statusSlot(el) {
-      let node = el.parentElement;
-      for (let i = 0; i < 4 && node !== null; i += 1) {
-        const cls = String(node.className || '');
-        if (cls.indexOf('slot') !== -1 || node.getAttribute('data-slot') !== null) return node;
+    function leadingSeat(row) {
+      const bySlot = row.querySelector('[data-slot="sidebar.session.row.leading"]');
+      if (bySlot !== null) return bySlot;
+      const title = titleEl(row);
+      let node = title;
+      while (node !== null && node !== row) {
+        const prev = node.previousElementSibling;
+        if (prev !== null) return prev;
         node = node.parentElement;
       }
-      return el.parentElement;
+      return null;
+    }
+
+    function applySeatOffset(row, depth) {
+      const seat = leadingSeat(row);
+      if (seat === null) return null;
+      if (depth > 0) seat.style.transform = 'translateX(-1em)';
+      else seat.style.removeProperty('transform');
+      return seat;
     }
 
     function decorate(el, sessionId, title) {
@@ -444,14 +455,11 @@ window.__ModuleLoader__.load({
       row.setAttribute('data-ft-session', sessionId);
       wireHover(row, sessionId);
       const layout = applyLayout(row);
-      // The leading seat also hosts the working spinner / waiting clock; on a
-      // child row the rail runs through that 16px cell, so shift the seat one
-      // character to the left to clear the connector.
-      const cell = statusSlot(el);
-      if (cell !== null) {
-        if (depthOf(sessionId) > 0) cell.style.transform = 'translateX(-1em)';
-        else cell.style.removeProperty('transform');
-      }
+      // The leading seat hosts the working spinner / waiting clock; on a child
+      // row the rail runs through that 16px cell, so shift the seat one
+      // character left to clear the connector. Resolved from the row, because
+      // which slot hosts us depends on the row's state.
+      applySeatOffset(row, depthOf(sessionId));
       ensureToggle(row, sessionId);
       refreshToggles();
       applyVisibility();
@@ -491,6 +499,11 @@ window.__ModuleLoader__.load({
           toggle: toggles.has(row),
           open: expanded.has(id),
           children: childCount(id),
+          seat: (function () {
+            const s = leadingSeat(row);
+            if (s === null) return null;
+            return { cls: String(s.className || '').slice(0, 40), tf: s.style.transform };
+          })(),
         });
       }
       return out;
@@ -536,7 +549,12 @@ window.__ModuleLoader__.load({
       load();
       setInterval(refreshStyle, 15000);
       setInterval(load, 10000);
-      setInterval(function () { for (const [, row] of rows) applyLayout(row); }, 20000);
+      setInterval(function () {
+        for (const [id, row] of rows) {
+          applyLayout(row);
+          applySeatOffset(row, depthOf(id));
+        }
+      }, 20000);
       try {
         let t = 0;
         new MutationObserver(function () {
@@ -544,7 +562,10 @@ window.__ModuleLoader__.load({
           clearTimeout(t);
           t = setTimeout(function () {
             applyOrder();
-            for (const [, row] of rows) applyLayout(row);
+            for (const [id, row] of rows) {
+              applyLayout(row);
+              applySeatOffset(row, depthOf(id));
+            }
           }, 120);
         }).observe(document.body, { childList: true, subtree: true });
       } catch (err) {
