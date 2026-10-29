@@ -21,6 +21,16 @@ window.__ModuleLoader__.load({
     let styled = false;
     let started = false;
     let lastReport = 0;
+
+    // Cross-origin support: the page may be served from a custom scheme or a
+    // different origin than the DSH host. The Host injects the base URL (and a
+    // lineage snapshot) into window.__DSH_FORK_TREE__ at index render time.
+    const injected = (typeof window !== 'undefined' && window.__DSH_FORK_TREE__) || null;
+    const apiBase = injected && typeof injected.base === 'string' ? injected.base.replace(/\/$/, '') : '';
+
+    function apiUrl(path) {
+      return apiBase + path;
+    }
     let orderTimer = 0;
     let lastApply = 0;
 
@@ -42,7 +52,7 @@ window.__ModuleLoader__.load({
 
     async function refreshStyle() {
       try {
-        const res = await fetch('/fork-tree/style.css', { credentials: 'same-origin' });
+        const res = await fetch(apiUrl('/fork-tree/style.css'), { credentials: 'same-origin' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         ensureStyle().textContent = await res.text();
         styled = true;
@@ -55,7 +65,7 @@ window.__ModuleLoader__.load({
       if (loading) return;
       loading = true;
       try {
-        const res = await fetch('/fork-tree/lineage.json', { credentials: 'same-origin' });
+        const res = await fetch(apiUrl('/fork-tree/lineage.json'), { credentials: 'same-origin' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         const parents = new Map();
@@ -248,6 +258,7 @@ window.__ModuleLoader__.load({
     }
 
     function applyLayout(row) {
+      placeToggle(row);
       const id = row.getAttribute('data-ft-session');
       if (!id) return null;
       const depth = depthOf(id);
@@ -349,11 +360,53 @@ window.__ModuleLoader__.load({
       const button = toggles.get(row);
       if (button === undefined) return;
       const open = expanded.has(id);
-      button.textContent = '+';
+      button.textContent = open ? '−' : '+';
       button.setAttribute('data-open', open ? '1' : '0');
       button.title = open ? '收起分叉' : '展开分叉';
       button.setAttribute('aria-expanded', open ? 'true' : 'false');
       button.setAttribute('aria-label', open ? '收起分叉' : '展开分叉');
+    }
+
+    /** Right edge of the painted title text, in viewport coordinates. */
+    function textRightOf(title) {
+      let right = 0;
+      const walker = document.createTreeWalker(title, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+      while (node !== null) {
+        const value = node.nodeValue || '';
+        const host = node.parentElement;
+        if (value.trim().length > 0 && (host === null || host.closest('.ft-toggle') === null)) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const rect = range.getBoundingClientRect();
+          if (rect.width > 0) right = Math.max(right, rect.right);
+        }
+        node = walker.nextNode();
+      }
+      return right;
+    }
+
+    /** Glue the marker to the end of the title text, never to the row edge. */
+    function placeToggle(row) {
+      const button = toggles.get(row);
+      if (button === undefined) return;
+      const title = titleEl(row);
+      if (title === null) return;
+      const right = textRightOf(title);
+      if (right <= 0) return;
+      const box = button.offsetParent !== null ? button.offsetParent : row;
+      const boxRect = box.getBoundingClientRect();
+      const width = box.clientWidth || boxRect.width;
+      let x = Math.round(right - boxRect.left + 6);
+      x = Math.max(0, Math.min(x, width - 18));
+      button.style.setProperty('--ft-plus-x', x + 'px');
+      const lineRect = title.getBoundingClientRect();
+      if (lineRect.height > 0) {
+        button.style.setProperty(
+          '--ft-plus-y',
+          Math.round(lineRect.top - boxRect.top + lineRect.height / 2) + 'px'
+        );
+      }
     }
 
     function ensureToggle(row, id) {
@@ -401,15 +454,22 @@ window.__ModuleLoader__.load({
         });
         toggles.set(row, button);
       }
-      // Inside the title element, immediately after its text: the marker hugs
-      // the name and cannot be displaced by hover-only row actions.
+      // Kept inside the title element (so React never removes it), but laid out
+      // absolutely against the row: always at the right edge of the title line,
+      // vertically centred, and it can never shift the title text.
       const title = titleEl(row);
       if (title !== null) {
         if (button.parentElement !== title) title.appendChild(button);
       } else if (button.parentElement === null) {
         row.appendChild(button);
       }
+      try {
+        if (getComputedStyle(row).position === 'static') row.style.position = 'relative';
+      } catch (err) {
+        /* keep the DOM as-is */
+      }
       updateToggle(id);
+      placeToggle(row);
     }
 
     function prune() {
@@ -532,7 +592,7 @@ window.__ModuleLoader__.load({
     function sendReport() {
       lastReport = Date.now();
       try {
-        fetch('/fork-tree/report', {
+        fetch(apiUrl('/fork-tree/report'), {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'content-type': 'application/json' },
@@ -563,7 +623,19 @@ window.__ModuleLoader__.load({
       return React.createElement('span', { ref, className: 'ft-cell', 'data-ft-id': sessionId });
     }
 
+    function seedFromPage() {
+      if (!injected || !Array.isArray(injected.items) || injected.items.length === 0) return;
+      const parents = new Map();
+      const byId = new Map();
+      for (const item of injected.items) {
+        parents.set(item.id, item.parent || null);
+        byId.set(item.id, item);
+      }
+      lineage = { at: Date.now(), parents, byId };
+    }
+
     function start() {
+      seedFromPage();
       ensureStyle();
       refreshStyle();
       load();

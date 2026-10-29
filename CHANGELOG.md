@@ -2,6 +2,13 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.6 — 2026-10-29
+
+- 跨平台取数：宿主把 `window.__DSH_FORK_TREE__`（含 base URL 与谱系快照）注入页面；客户端优先用该 base 请求 `/fork-tree/*`，并在所有请求失败时用快照渲染。
+- 所有路由支持 CORS 预检与 `access-control-allow-origin: *`，自定义 scheme / 跨 origin 页面也能取数。
+- Cross-platform data access: the Host injects `window.__DSH_FORK_TREE__` (base URL + lineage snapshot); the Client uses it and still renders when fetches are blocked.
+- All routes answer CORS preflight with `access-control-allow-origin: *`.
+
 ## 0.8.5 — 2026-10-29
 
 - 激活保护：`apply` 外层加 try/catch，插件内部任何异常都不再阻断 DSH 启动（记一条 warn，插件置为未激活）。
