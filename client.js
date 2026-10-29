@@ -426,6 +426,16 @@ window.__ModuleLoader__.load({
       for (const [id, row] of rows) ensureToggle(row, id);
     }
 
+    function statusSlot(el) {
+      let node = el.parentElement;
+      for (let i = 0; i < 4 && node !== null; i += 1) {
+        const cls = String(node.className || '');
+        if (cls.indexOf('slot') !== -1 || node.getAttribute('data-slot') !== null) return node;
+        node = node.parentElement;
+      }
+      return el.parentElement;
+    }
+
     function decorate(el, sessionId, title) {
       if (typeof sessionId !== 'string') return;
       const row = rowOf(el, title);
@@ -434,6 +444,14 @@ window.__ModuleLoader__.load({
       row.setAttribute('data-ft-session', sessionId);
       wireHover(row, sessionId);
       const layout = applyLayout(row);
+      // The leading seat also hosts the working spinner / waiting clock; on a
+      // child row the rail runs through that 16px cell, so shift the seat one
+      // character to the left to clear the connector.
+      const cell = statusSlot(el);
+      if (cell !== null) {
+        if (depthOf(sessionId) > 0) cell.style.transform = 'translateX(-1em)';
+        else cell.style.removeProperty('transform');
+      }
       ensureToggle(row, sessionId);
       refreshToggles();
       applyVisibility();

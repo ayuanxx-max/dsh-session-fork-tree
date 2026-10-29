@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.7.3 — 2026-10-29
+
+- 子会话的"工作转圈 / 等待输入时钟"图标左移一个汉字宽度，避免与 `╰` 连接线重叠。
+- The working spinner and waiting-input clock move one character left on child rows so they no longer overlap the `╰` connector.
+
 ## 0.7.2 — 2026-10-29
 
 - 双击 `+` 不再触发重命名手势；收起状态下展开时立即重新测量连接线坐标（不再依赖悬停）。

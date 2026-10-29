@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-fork-tree",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": false,
   "type": "module",
   "description": "DSH sidebar fork tree: forked sessions sit under their parent with rounded rails, collapse behind a green '+', and highlight the ancestor chain on hover.",
@@ -46,7 +46,9 @@
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": ["slots"]
+      "inject": [
+        "slots"
+      ]
     }
   }
 }
