@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.0 — 2026-10-29
+
+- 项目更名：中文「DSH 会话分叉树排列功能」、英文「DSH Session Fork Tree Arrangement」；README 标题、仓库描述、插件显示名同步。
+- Renamed to "DSH Session Fork Tree Arrangement" (zh: DSH 会话分叉树排列功能); README title, repository description and plugin display name updated.
+
 ## 0.7.8 — 2026-10-29
 
 - 归档的分叉不再产生 `+`：只有"侧栏里真实渲染出来的子会话"才计入分叉数（归档会话仍在谱系里，但不会被当作子分叉）。

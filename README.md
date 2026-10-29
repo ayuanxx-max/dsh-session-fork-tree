@@ -1,8 +1,8 @@
-# DSH 会话分叉树排列 · DSH Session Fork Tree
+# DSH 会话分叉树排列功能 · DSH Session Fork Tree Arrangement
 
-把 DSH 侧栏里"另起一行"的分叉会话，变成挂在父会话下面的树：缩进 + 圆角连接线 + 绿色 `+` 折叠按钮 + 悬停祖先链高亮。
+【DSH 会话分叉树排列功能】把 DSH 侧栏里"另起一行"的分叉会话，变成挂在父会话下面的树：缩进 + 圆角连接线 + 绿色 `+` 折叠按钮 + 悬停祖先链高亮。
 
-Turns forked sessions that used to appear as unrelated rows into a tree under their parent: indent, rounded connector, a green `+` expander, and ancestor-chain highlighting on hover.
+DSH Session Fork Tree Arrangement turns forked sessions that used to appear as unrelated rows into a tree under their parent: indent, rounded connector, a green `+` expander, and ancestor-chain highlighting on hover.
 
 [中文](#中文) · [English](#english)
 
