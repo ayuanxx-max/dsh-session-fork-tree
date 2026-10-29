@@ -2,6 +2,12 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.0 — 2026-10-30
+
+- 彻底修复“无 +、无 ╰”：客户端改为三层取数——注入的 base、`window.__DSH_BOOT__`、页面已发生的 Host 请求 origin（性能条目），逐层尝试。
+- 数据完全取不到时启用**名称派生树**：按标题前缀（`父名 · 分叉N` 或系统默认 `父名 (n)`）在本地推导父子关系，仍能渲染缩进、`╰`、`+`、折叠。
+- Three-layer Host discovery (injected base → `__DSH_BOOT__` → origin of existing Host requests) plus a name-derived tree fallback, so the UI renders even with zero Host data.
+
 ## 0.8.6 — 2026-10-29
 
 - 跨平台取数：宿主把 `window.__DSH_FORK_TREE__`（含 base URL 与谱系快照）注入页面；客户端优先用该 base 请求 `/fork-tree/*`，并在所有请求失败时用快照渲染。

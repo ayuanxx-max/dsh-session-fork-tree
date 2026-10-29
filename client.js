@@ -26,7 +26,42 @@ window.__ModuleLoader__.load({
     // different origin than the DSH host. The Host injects the base URL (and a
     // lineage snapshot) into window.__DSH_FORK_TREE__ at index render time.
     const injected = (typeof window !== 'undefined' && window.__DSH_FORK_TREE__) || null;
-    const apiBase = injected && typeof injected.base === 'string' ? injected.base.replace(/\/$/, '') : '';
+
+    // The page may be served from a custom scheme (desktop shells) or another
+    // origin than the Host. Discover the Host base from, in order: the injected
+    // boot data, the DSH boot global, or a same-page resource whose origin
+    // answers the Host API. Empty string means "same origin".
+    function discoverBase() {
+      try {
+        if (injected && typeof injected.base === 'string' && injected.base) {
+          return injected.base.replace(/\/$/, '');
+        }
+        const boot = typeof window !== 'undefined' ? window.__DSH_BOOT__ : null;
+        if (boot && typeof boot === 'object') {
+          const keys = ['serverUrl', 'origin', 'url', 'apiBase', 'baseUrl', 'host'];
+          for (const key of keys) {
+            const value = boot[key];
+            if (typeof value === 'string' && /^https?:\/\//.test(value)) return value.replace(/\/$/, '');
+          }
+        }
+        if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+          const pageOrigin = typeof location !== 'undefined' ? location.origin : '';
+          const entries = performance.getEntriesByType('resource');
+          for (const entry of entries) {
+            const name = String(entry && entry.name ? entry.name : '');
+            const match = name.match(/^(https?:\/\/[^/]+)\//);
+            if (!match) continue;
+            if (match[1] === pageOrigin) continue;
+            if (/\/api\b|:\d+\//.test(name)) return match[1];
+          }
+        }
+      } catch (err) {
+        /* fall through to same-origin */
+      }
+      return '';
+    }
+
+    let apiBase = discoverBase();
 
     function apiUrl(path) {
       return apiBase + path;
@@ -82,7 +117,13 @@ window.__ModuleLoader__.load({
         applyVisibility();
         sendReport();
       } catch (err) {
-        console.warn('[fork-tree] lineage fetch failed', err);
+        console.warn('[fork-tree] lineage fetch failed, falling back to names:', err);
+        if (applyTextual()) {
+          applyOrder();
+          for (const [, row] of rows) applyLayout(row);
+          refreshToggles();
+          applyVisibility();
+        }
       } finally {
         loading = false;
       }
@@ -509,6 +550,51 @@ window.__ModuleLoader__.load({
       return seat;
     }
 
+    /** Title text of a row, excluding our own "+" button. */
+    function titleText(row) {
+      const el = titleEl(row);
+      if (el === null) return '';
+      let text = '';
+      for (const node of el.childNodes) {
+        if (node.nodeType === 3) text += node.nodeValue || '';
+        else if (node.nodeType === 1) {
+          if (node.classList && node.classList.contains('ft-toggle')) continue;
+          text += node.textContent || '';
+        }
+      }
+      return text.replace(/\s+/g, ' ').trim();
+    }
+
+    /**
+     * Last-resort lineage: derive the tree from the names we already wrote.
+     * A row whose title starts with another row's title + " " is its child.
+     * Works with zero Host data (custom scheme, blocked routes, old versions).
+     */
+    function applyTextual() {
+      const titles = new Map();
+      for (const [id, row] of rows) {
+        const text = titleText(row);
+        if (text) titles.set(id, text);
+      }
+      if (titles.size === 0) return false;
+      const parents = new Map();
+      const byId = new Map();
+      for (const [id, text] of titles) {
+        let best = null;
+        for (const [otherId, otherText] of titles) {
+          if (otherId === id || otherText === text) continue;
+          const direct = text.startsWith(otherText + ' ');
+          const numbered = new RegExp('^' + otherText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\(\\d+\\)$').test(text);
+          if (!direct && !numbered) continue;
+          if (best === null || otherText.length > titles.get(best).length) best = otherId;
+        }
+        parents.set(id, best === null ? null : best);
+        byId.set(id, { id, parent: best, textual: true });
+      }
+      lineage = { at: Date.now(), parents, byId, textual: true };
+      return true;
+    }
+
     function decorate(el, sessionId, title) {
       if (typeof sessionId !== 'string') return;
       const row = rowOf(el, title);
@@ -516,6 +602,7 @@ window.__ModuleLoader__.load({
       rows.set(sessionId, row);
       row.setAttribute('data-ft-session', sessionId);
       wireHover(row, sessionId);
+      if (!lineage.parents.has(sessionId)) applyTextual();
       const layout = applyLayout(row);
       // The leading seat hosts the working spinner / waiting clock; on a child
       // row the rail runs through that 16px cell, so shift the seat one
