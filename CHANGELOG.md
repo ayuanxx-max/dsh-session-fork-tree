@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.1 — 2026-10-29
+
+- `╰` 的上段加高度上限（`max-height: 14px`）：标题换成两行时不再被拉长，横向标题区域也不会被撑高。
+- The upper segment of `╰` is capped (`max-height: 14px`) so a wrapped title no longer stretches it.
+
 ## 0.8.0 — 2026-10-29
 
 - 项目更名：中文「DSH 会话分叉树排列功能」、英文「DSH Session Fork Tree Arrangement」；README 标题、仓库描述、插件显示名同步。

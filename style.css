@@ -1,4 +1,4 @@
-﻿/* Served by GET /fork-tree/style.css, refreshed every 15 s.
+/* Served by GET /fork-tree/style.css, refreshed every 15 s.
    The connector is a single 鈺?shape on the row itself: a vertical half-height
    segment plus a horizontal at its bottom, rounded at the junction. Positions
    come from measured pixel values (--ft-rail-x / --ft-elbow-w) and are
@@ -29,7 +29,10 @@
   left: var(--ft-rail-x, 20px);
   top: 0;
   width: var(--ft-elbow-w, 12px);
+  /* Half of the row, but never taller than one line: a wrapped title used to
+     stretch this vertical segment and make the correction look heavy. */
   height: 50%;
+  max-height: 14px;
   pointer-events: none;
   border-left: 1px solid var(--dsw-alias-label-tertiary, #9aa0a6);
   border-bottom: 1px solid var(--dsw-alias-label-tertiary, #9aa0a6);
