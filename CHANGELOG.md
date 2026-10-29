@@ -2,6 +2,13 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.4 — 2026-10-29
+
+- 修复 Linux / 非 desktop profile 启动失败：宿主半不再硬依赖 `workspaceRegistry` / `workspaceController`，缺失时只跳过"顺序持久化"，不影响插件激活与 DSH 启动。
+- 修复公开包的客户端模块 id：改为包名 `dsh-session-fork-tree`（之前沿用本地别名 `@local/fork-tree`，DSH 按包名匹配客户端模块，id 不符会导致激活失败、启动报错）。
+- Fix startup failure on Linux / profiles without workspace services: the host half no longer hard-depends on `workspaceRegistry` / `workspaceController`; reordering is skipped when they are absent.
+- Fix the public package's client module id: it must equal the package name (`dsh-session-fork-tree`), otherwise the client entry fails to activate and DSH refuses to boot.
+
 ## 0.8.3 — 2026-10-29
 
 - `+` 按钮改为绝对定位：贴在标题行右端、垂直居中，不再影响标题文本宽度；展开态仍是绿色边框。

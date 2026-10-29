@@ -10,7 +10,10 @@
  *      GET  /fork-tree/style.css
  *      POST /fork-tree/report
  */
-export const inject = ['sessionController', 'webServer', 'workspaceController', 'workspaceRegistry'];
+// Only the two services every DSH profile provides. Workspace reordering above
+// needs workspaceRegistry / workspaceController, so it is resolved optionally
+// inside its own block: a profile without them must not fail activation.
+export const inject = ['sessionController', 'webServer'];
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -176,13 +179,17 @@ export function apply(ctx, config) {
     : [];
 
   if (moves.length > 0) {
-    ctx.effect(function () {
+    const registry = typeof ctx.get === 'function' ? ctx.get('workspaceRegistry') : ctx.workspaceRegistry;
+    const controller = typeof ctx.get === 'function' ? ctx.get('workspaceController') : ctx.workspaceController;
+    if (!registry || !controller) {
+      console.info('[fork-tree] workspace reordering skipped: service unavailable in this profile');
+    } else ctx.effect(function () {
       let cancelled = false;
       (async function run() {
         for (const move of moves) {
           if (cancelled) return;
           try {
-            const workspaces = ctx.workspaceRegistry.list();
+            const workspaces = registry.list();
             const workspace = workspaces.find(function (w) {
               return Array.isArray(w.sessionIds) && w.sessionIds.indexOf(move.sessionId) !== -1;
             });
@@ -192,7 +199,7 @@ export function apply(ctx, config) {
             if (after < 0) continue;
             const next = ids[after + 1];
             if (next === move.sessionId) continue;
-            await ctx.workspaceController.insertSessionBefore({
+            await controller.insertSessionBefore({
               workspaceId: workspace.id,
               sessionId: move.sessionId,
               beforeSessionId: next,

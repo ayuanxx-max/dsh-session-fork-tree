@@ -9,7 +9,7 @@
  *  - report: measurements POSTed to /fork-tree/report.
  */
 window.__ModuleLoader__.load({
-  id: '@local/fork-tree',
+  id: 'dsh-session-fork-tree',
   factory(require) {
     const React = require('react');
     const STYLE_ID = 'fork-tree-style';

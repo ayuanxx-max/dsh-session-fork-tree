@@ -97,6 +97,31 @@ dsh plugin --profile desktop add link:$repo
 2. `dsh plugin --profile desktop remove dsh-session-fork-tree`；
 3. 重启 DSH。
 
+
+### Linux / macOS 安装
+
+```bash
+git clone https://github.com/ayuanxx-max/dsh-session-fork-tree.git
+REPO="$(cd dsh-session-fork-tree && pwd)"
+dsh plugin --profile desktop add "link:$REPO"
+# 编辑 ~/.dsh/profiles/desktop/package.json，把 "dsh-session-fork-tree" 加入 dsh.profile.bundles
+# 完全退出 DSH 后重启
+```
+
+### 故障排查：重启后 DSH 打不开
+
+1. **先恢复启动**：不要动插件代码，在 profile 的 `cordis.patch.yml` 末尾追加
+
+   ```yaml
+   - id: fork-tree
+     disabled: true
+   ```
+
+   重启 DSH 即可正常启动（插件被禁用，其余不受影响）。
+2. **确认版本与 profile**：DSH 0.2.x 及以上；profile 名与安装时一致（`desktop` 或 `web`）。
+3. **自己改过包名时**：`client.js` 里 `window.__ModuleLoader__.load({ id: ... })` 的 `id` **必须等于 `package.json` 的 `name`**。DSH 按包名匹配客户端模块，id 不一致会让客户端条目激活失败，进而导致启动报错。
+4. **看日志**：`~/.dsh/logs` 下最新一份日志里的 `boot` / `activate` 报错能直接指出是哪个条目失败。
+
 ### 许可
 
 MIT，见 [LICENSE](LICENSE)。
@@ -184,6 +209,31 @@ Override the bundle's `config` in the profile's `cordis.patch.yml`:
 ### Uninstall
 
 Remove `dsh-session-fork-tree` from `dsh.profile.bundles`, run `dsh plugin --profile desktop remove dsh-session-fork-tree`, restart DSH.
+
+
+### Install on Linux / macOS
+
+```bash
+git clone https://github.com/ayuanxx-max/dsh-session-fork-tree.git
+REPO="$(cd dsh-session-fork-tree && pwd)"
+dsh plugin --profile desktop add "link:$REPO"
+# append "dsh-session-fork-tree" to dsh.profile.bundles in ~/.dsh/profiles/desktop/package.json
+# quit DSH completely, then start it again
+```
+
+### Troubleshooting: DSH does not start after a restart
+
+1. **Recover the boot first**: append to the profile's `cordis.patch.yml`
+
+   ```yaml
+   - id: fork-tree
+     disabled: true
+   ```
+
+   and restart; DSH boots with the plugin disabled.
+2. **Check version and profile**: DSH 0.2.x or newer, and the same profile you installed into.
+3. **If you renamed the package**: the `id` inside `window.__ModuleLoader__.load({ id: ... })` in `client.js` **must equal the `name` in `package.json`**. DSH matches client modules by package name; a mismatch fails the client entry and DSH refuses to boot.
+4. **Read the log**: the newest file under `~/.dsh/logs` names the failing entry in its `boot` / `activate` error.
 
 ### License
 
