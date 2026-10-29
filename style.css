@@ -1,5 +1,5 @@
-/* Served by GET /fork-tree/style.css, refreshed every 15 s.
-   The connector is a single ╰ shape on the row itself: a vertical half-height
+﻿/* Served by GET /fork-tree/style.css, refreshed every 15 s.
+   The connector is a single 鈺?shape on the row itself: a vertical half-height
    segment plus a horizontal at its bottom, rounded at the junction. Positions
    come from measured pixel values (--ft-rail-x / --ft-elbow-w) and are
    recomputed on resize, so the shape does not drift. */
@@ -17,7 +17,7 @@
   transition: background-color .12s ease;
 }
 
-/* We draw the whole ╰ with ::after only; a full-height ::before is what used to
+/* We draw the whole 鈺?with ::after only; a full-height ::before is what used to
    leave a "|" running past the corner. */
 [data-ft-depth]::before {
   content: none;
@@ -51,7 +51,7 @@
 
 /* Fork expander: a small "+" glued to the right of the session name.
    It is appended INSIDE the title element, so hover-only row actions cannot
-   push it around; the glyph flips to "−" while the subtree is open.
+   push it around; the glyph flips to "鈭? while the subtree is open.
    Fixed size keeps the row geometry identical in both states. */
 .ft-toggle {
   display: inline-flex;
@@ -88,4 +88,10 @@
 
 [data-ft-hidden] {
   display: none !important;
+}
+
+/* State-independent fallback: shift the leading seat on child rows whatever
+   renders inside it (idle dot, working spinner, waiting clock). */
+[data-ft-depth] [data-slot="sidebar.session.row.leading"] {
+  transform: translateX(-1em);
 }

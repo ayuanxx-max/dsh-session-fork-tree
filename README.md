@@ -20,7 +20,7 @@ DSH 里"分叉"会新建一个会话，但它和父会话在侧栏里是**两条
 2. **缩进 + 连接线**：子行缩进 16px，父标题左缘起画 `╰`（竖线到行高一半后转横线，圆角 8px，绝对像素，窗口变化自动重算）；
 3. **折叠**：有分叉的会话，名字右侧会出现醒目的**绿色 `+`**；默认全部收起，点 `+` 展开、再点收起，逐层递归；展开时 `+` 显示**绿色边框**；
 4. **悬停高亮**：鼠标划过子行，整条祖先链变亮；
-5. **可选改名**：同父的多个分叉标题重复时，可按配置改名（例如追加"分叉 1 / 分叉 2"）。
+5. **自动命名**：分叉的标题如果还是系统默认（`父名 (1)`），会被改成 `父名 · 分叉N`（N 为同父分叉的创建顺序）；**你手动改过的标题不会被覆盖**。
 
 ### 安装
 
@@ -115,7 +115,7 @@ This plugin re-visualises the parent/child relation:
 2. **Indent + connector** — child rows indent 16px and draw `╰` from the parent title's left edge (vertical down to half the row, then horizontal, 8px rounded corner, absolute pixels recomputed on resize);
 3. **Collapse** — any session that owns forks gets a green `+` right of its name; everything is collapsed by default, click to expand, click again to collapse, recursively; an open `+` shows a green border;
 4. **Hover highlight** — hovering a child brightens its whole ancestor chain;
-5. **Optional rename** — colliding fork titles can be renamed by config ("fork 1 / fork 2").
+5. **Auto naming** — a fork whose title is still the generated default (`Parent (1)`) becomes `Parent · forkN`; titles you renamed yourself are never overwritten.
 
 ### Install
 

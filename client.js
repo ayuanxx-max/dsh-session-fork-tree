@@ -504,6 +504,24 @@ window.__ModuleLoader__.load({
             if (s === null) return null;
             return { cls: String(s.className || '').slice(0, 40), tf: s.style.transform };
           })(),
+          icons: (function () {
+            const base = row.getBoundingClientRect().left;
+            const out = [];
+            const all = row.querySelectorAll('*');
+            for (let i = 0; i < all.length && out.length < 6; i += 1) {
+              const el = all[i];
+              const r = el.getBoundingClientRect();
+              if (r.width <= 0 || r.width > 24 || r.height <= 0 || r.height > 24) continue;
+              out.push({
+                tag: el.tagName,
+                cls: String(el.className || '').slice(0, 28),
+                x: Math.round(r.left - base),
+                w: Math.round(r.width),
+                tf: el.style.transform || '',
+              });
+            }
+            return out;
+          })(),
         });
       }
       return out;

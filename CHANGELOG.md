@@ -2,6 +2,21 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.7.7 — 2026-10-29
+
+- 自动命名改为"只改仍是系统默认标题的分叉"：`<父名> · 分叉N`（N = 同父子会话按创建顺序的序号）；人工改过的标题不再被覆盖。
+- Auto-naming now only renames a fork whose title is still the generated default (`<parent> · forkN`); titles a human changed are never touched.
+
+## 0.7.6 — 2026-10-29
+
+- 移除"每次激活强制改名"的静态列表，改为上面的自动命名。
+- Dropped the forced static rename list in favour of auto-naming.
+
+## 0.7.5 — 2026-10-29
+
+- 行首状态位（空闲点 / 转圈 / 时钟）改为状态无关的 CSS 位移，修正空闲态不生效的问题。
+- The leading status seat (idle dot / spinner / clock) is shifted by a state-independent CSS rule.
+
 ## 0.7.4 — 2026-10-29
 
 - 修正 0.7.3 未生效的问题：状态位不再从"我们自己的槽位单元格"推导，而是从行内定位（`[data-slot=sidebar.session.row.leading]`，退化时取标题前一个兄弟元素）；工作/等待状态切换重渲染后由观察者与巡检重新贴位移。

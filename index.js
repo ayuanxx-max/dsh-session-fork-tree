@@ -1,11 +1,14 @@
 /**
  * Host half of @local/fork-tree.
  *
- * 1. One idempotent rename pass per activation: forked sessions whose generated
- *    titles collide become distinguishable.
- *    Config: { renames: [{ sessionId, title }] }
- * 2. A read-only lineage endpoint for the Client half:
- *    GET /fork-tree/lineage.json -> { generatedAt, items: [{ id, parent, ... }] }
+ * 1. Auto-naming: a fork whose title is still the generated default becomes
+ *    "<parent> · forkN". A title a human already changed is never touched.
+ * 2. Optional config: renames[] (explicit one-shot renames) and reorder[]
+ *    (persist "child right after parent" into workspace.sessionIds).
+ * 3. Read-only endpoints for the Client half:
+ *      GET  /fork-tree/lineage.json
+ *      GET  /fork-tree/style.css
+ *      POST /fork-tree/report
  */
 export const inject = ['sessionController', 'webServer', 'workspaceController', 'workspaceRegistry'];
 
@@ -14,6 +17,16 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const REPORT_PATH = join(tmpdir(), 'fork-tree-report.json');
+const SEP = ' \u00b7 ';
+const FORK = '\u5206\u53c9';
+
+function sendJson(res, status, value) {
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  });
+  res.end(JSON.stringify(value));
+}
 
 function readBody(req, limitBytes) {
   return new Promise(function (resolve, reject) {
@@ -35,36 +48,62 @@ function readBody(req, limitBytes) {
   });
 }
 
-function sendJson(res, status, value) {
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-  });
-  res.end(JSON.stringify(value));
+function escapeRe(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isAutoTitle(title, parentTitle) {
+  if (!title) return true;
+  if (!parentTitle) return false;
+  if (title === parentTitle) return true;
+  return new RegExp('^' + escapeRe(parentTitle) + ' \\(\\d+\\)$').test(title);
+}
+
+async function titleOf(ctx, sessionId) {
+  try {
+    const value = await ctx.sessionController.projections({ sessionId });
+    if (value && value.values && typeof value.values.title === 'string') return value.values.title;
+  } catch (err) {
+    /* fall back to the event scan */
+  }
+  try {
+    const inspection = await ctx.sessionController.inspect(sessionId);
+    const events = Array.isArray(inspection && inspection.events) ? inspection.events : [];
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+      const event = events[i];
+      if (event.type !== 'session/title' && event.type !== 'session/rename') continue;
+      const data = event.data || {};
+      if (typeof data.title === 'string') return data.title;
+    }
+  } catch (err) {
+    /* unknown title */
+  }
+  return '';
 }
 
 export function apply(ctx, config) {
-  const list = Array.isArray(config && config.renames) ? config.renames : [];
-  const targets = list.filter(function (item) {
-    return item !== null && typeof item === 'object' &&
-      typeof item.sessionId === 'string' && item.sessionId.length > 0 &&
-      typeof item.title === 'string' && item.title.length > 0;
-  });
+  const settings = config && typeof config === 'object' ? config : {};
 
-  if (targets.length > 0) {
+  // --- explicit one-shot renames (kept for manual repairs) ---
+  const renames = Array.isArray(settings.renames)
+    ? settings.renames.filter(function (item) {
+      return item !== null && typeof item === 'object' &&
+        typeof item.sessionId === 'string' && item.sessionId.length > 0 &&
+        typeof item.title === 'string' && item.title.length > 0;
+    })
+    : [];
+
+  if (renames.length > 0) {
     ctx.effect(function () {
       let cancelled = false;
       (async function run() {
-        for (const target of targets) {
+        for (const item of renames) {
           if (cancelled) return;
           try {
-            const result = await ctx.sessionController.rename({
-              sessionId: target.sessionId,
-              title: target.title,
-            });
-            console.info('[fork-tree] renamed', target.sessionId, '->', target.title, result);
+            await ctx.sessionController.rename({ sessionId: item.sessionId, title: item.title });
+            console.info('[fork-tree] renamed', item.sessionId, '->', item.title);
           } catch (err) {
-            console.warn('[fork-tree] rename failed', target.sessionId, err);
+            console.warn('[fork-tree] rename failed', item.sessionId, err);
           }
         }
       })();
@@ -74,8 +113,62 @@ export function apply(ctx, config) {
     });
   }
 
-  const moves = Array.isArray(config && config.reorder)
-    ? config.reorder.filter(function (item) {
+  // --- automatic fork naming, only for still-default titles ---
+  if (settings.autoName !== false) {
+    ctx.effect(function () {
+      let cancelled = false;
+      let timer = 0;
+
+      async function pass() {
+        if (cancelled) return;
+        try {
+          const value = await ctx.sessionController.list({}, new AbortController().signal);
+          const items = value && Array.isArray(value.items) ? value.items : [];
+          const byParent = new Map();
+          for (const item of items) {
+            if (!item.parentSessionId) continue;
+            if (item.origin === 'subagent') continue;
+            if (!byParent.has(item.parentSessionId)) byParent.set(item.parentSessionId, []);
+            byParent.get(item.parentSessionId).push(item);
+          }
+          for (const [parentId, children] of byParent) {
+            const parentTitle = await titleOf(ctx, parentId);
+            if (!parentTitle) continue;
+            children.sort(function (a, b) {
+              return (a.updatedAt || 0) - (b.updatedAt || 0);
+            });
+            for (let i = 0; i < children.length; i += 1) {
+              if (cancelled) return;
+              const child = children[i];
+              const title = await titleOf(ctx, child.sessionId);
+              if (!isAutoTitle(title, parentTitle)) continue;
+              const next = parentTitle + SEP + FORK + (i + 1);
+              if (next === title) continue;
+              try {
+                await ctx.sessionController.rename({ sessionId: child.sessionId, title: next });
+                console.info('[fork-tree] auto-named', child.sessionId, '->', next);
+              } catch (err) {
+                console.warn('[fork-tree] auto-name failed', child.sessionId, err);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[fork-tree] auto-name scan failed', err);
+        }
+        if (!cancelled) timer = setTimeout(pass, 60000);
+      }
+
+      pass();
+      return function () {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    });
+  }
+
+  // --- optional persisted ordering ---
+  const moves = Array.isArray(settings.reorder)
+    ? settings.reorder.filter(function (item) {
       return item !== null && typeof item === 'object' &&
         typeof item.sessionId === 'string' && item.sessionId.length > 0 &&
         typeof item.afterSessionId === 'string' && item.afterSessionId.length > 0;
@@ -116,30 +209,15 @@ export function apply(ctx, config) {
     });
   }
 
+  // --- lineage ---
   ctx.effect(function () {
     return ctx.webServer.register({
       kind: 'exact',
       path: '/fork-tree/lineage.json',
       async handler(req, res) {
         try {
-          const controller = new AbortController();
-          const value = await ctx.sessionController.list({}, controller.signal);
-          const archived = new Set(Array.from(ctx.workspaceRegistry.archivedSessionIds || []));
-          const listed = new Set();
-          try {
-            for (const workspace of ctx.workspaceRegistry.list()) {
-              if (workspace && Array.isArray(workspace.sessionIds)) {
-                for (const id of workspace.sessionIds) listed.add(id);
-              }
-            }
-          } catch (err) {
-            /* a registry race just falls back to the origin test below */
-          }
+          const value = await ctx.sessionController.list({}, new AbortController().signal);
           const items = (value && Array.isArray(value.items) ? value.items : []).map(function (s) {
-            const isArchived = archived.has(s.sessionId);
-            const isListed = listed.size === 0
-              ? (isArchived === false && s.origin !== 'subagent')
-              : (listed.has(s.sessionId) && isArchived === false);
             return {
               id: s.sessionId,
               parent: s.parentSessionId === undefined ? null : s.parentSessionId,
@@ -147,8 +225,6 @@ export function apply(ctx, config) {
               running: s.running === true,
               blank: s.blank === true,
               origin: s.origin === undefined ? null : s.origin,
-              archived: isArchived,
-              displayed: isListed,
             };
           });
           sendJson(res, 200, { generatedAt: Date.now(), items });
@@ -160,6 +236,7 @@ export function apply(ctx, config) {
     });
   }, 'fork-tree: lineage route');
 
+  // --- client diagnostics ---
   ctx.effect(function () {
     return ctx.webServer.register({
       kind: 'exact',
@@ -172,8 +249,7 @@ export function apply(ctx, config) {
         try {
           const raw = await readBody(req, 64 * 1024);
           const parsed = JSON.parse(raw || '{}');
-          const record = { receivedAt: new Date().toISOString(), report: parsed };
-          await writeFile(REPORT_PATH, JSON.stringify(record, null, 2), 'utf8');
+          await writeFile(REPORT_PATH, JSON.stringify({ receivedAt: new Date().toISOString(), report: parsed }, null, 2), 'utf8');
           sendJson(res, 200, { ok: true, path: REPORT_PATH });
         } catch (err) {
           sendJson(res, 400, { error: String(err && err.message ? err.message : err) });
@@ -182,6 +258,7 @@ export function apply(ctx, config) {
     });
   }, 'fork-tree: report route');
 
+  // --- live styles ---
   ctx.effect(function () {
     return ctx.webServer.register({
       kind: 'exact',
@@ -189,10 +266,7 @@ export function apply(ctx, config) {
       async handler(req, res) {
         try {
           const css = await readFile(new URL('./style.css', import.meta.url), 'utf8');
-          res.writeHead(200, {
-            'content-type': 'text/css; charset=utf-8',
-            'cache-control': 'no-store',
-          });
+          res.writeHead(200, { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'no-store' });
           res.end(css);
         } catch (err) {
           res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
