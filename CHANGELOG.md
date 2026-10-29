@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.2 — 2026-10-29
+
+- `╰` 上段高度上限从 14px 收紧到 **10px**（多行标题下更短、更轻）。
+- The upper segment cap tightens from 14px to **10px**.
+
 ## 0.8.1 — 2026-10-29
 
 - `╰` 的上段加高度上限（`max-height: 14px`）：标题换成两行时不再被拉长，横向标题区域也不会被撑高。

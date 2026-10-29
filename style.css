@@ -29,10 +29,9 @@
   left: var(--ft-rail-x, 20px);
   top: 0;
   width: var(--ft-elbow-w, 12px);
-  /* Half of the row, but never taller than one line: a wrapped title used to
-     stretch this vertical segment and make the correction look heavy. */
+  /* Half of the row, capped to 10px: a wrapped title no longer stretches the vertical. */
   height: 50%;
-  max-height: 14px;
+  max-height: 10px;
   pointer-events: none;
   border-left: 1px solid var(--dsw-alias-label-tertiary, #9aa0a6);
   border-bottom: 1px solid var(--dsw-alias-label-tertiary, #9aa0a6);
