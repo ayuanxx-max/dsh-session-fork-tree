@@ -1,4 +1,4 @@
-/* Served by GET /fork-tree/style.css, refreshed every 15 s.
+﻿/* Served by GET /fork-tree/style.css, refreshed every 15 s.
    The connector is a single 鈺?shape on the row itself: a vertical half-height
    segment plus a horizontal at its bottom, rounded at the junction. Positions
    come from measured pixel values (--ft-rail-x / --ft-elbow-w) and are
@@ -96,4 +96,14 @@
    renders inside it (idle dot, working spinner, waiting clock). */
 [data-ft-depth] [data-slot="sidebar.session.row.leading"] {
   transform: translateX(-1em);
+}
+/* Toggle placement: right edge of the title line, vertically centred, and
+   absolutely positioned so it can never shift the title text. */
+.ft-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  z-index: 3;
 }

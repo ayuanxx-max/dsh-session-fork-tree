@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.8.3 — 2026-10-29
+
+- `+` 按钮改为绝对定位：贴在标题行右端、垂直居中，不再影响标题文本宽度；展开态仍是绿色边框。
+- The `+` toggle is absolutely positioned at the right edge of the title line and vertically centred, so it never shifts the title text.
+
 ## 0.8.2 — 2026-10-29
 
 - `╰` 上段高度上限从 14px 收紧到 **10px**（多行标题下更短、更轻）。
