@@ -10,6 +10,11 @@
 >
 > 兼容 DSH Desktop / Web；安装见下方「安装」，卸载见「卸载」。
 
+![会话管理示意](docs/images/session-management.svg)
+
+📖 **[会话管理指南（折叠 + 分叉树组合用法）](docs/session-management-guide.md)**
+
+
 ### 相关插件
 
 - [dsh-session-accordion](https://github.com/ayuanxx-max/dsh-session-accordion) —— 会话折叠成单行
