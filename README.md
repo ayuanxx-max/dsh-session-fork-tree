@@ -1,6 +1,7 @@
 # DSH 会话分叉树排列功能 · DSH Session Fork Tree Arrangement
 
 [![awesome-dsh-plugin](https://img.shields.io/badge/awesome--dsh--plugin-已收录-brightgreen)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+[![dshbase](https://img.shields.io/badge/dshbase-已收录-blue)](https://dshbase.com/zh/plugins/dsh-session-fork-tree/)
 [![license](https://img.shields.io/github/license/ayuanxx-max/dsh-session-fork-tree)](LICENSE)
 [![release](https://img.shields.io/github/v/release/ayuanxx-max/dsh-session-fork-tree)](https://github.com/ayuanxx-max/dsh-session-fork-tree/releases)
 [![stars](https://img.shields.io/github/stars/ayuanxx-max/dsh-session-fork-tree)](https://github.com/ayuanxx-max/dsh-session-fork-tree/stargazers)
