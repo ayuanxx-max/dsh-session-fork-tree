@@ -1,5 +1,20 @@
 # DSH 会话分叉树排列功能 · DSH Session Fork Tree Arrangement
 
+[![awesome-dsh-plugin](https://img.shields.io/badge/awesome--dsh--plugin-已收录-brightgreen)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+[![license](https://img.shields.io/github/license/ayuanxx-max/dsh-session-fork-tree)](LICENSE)
+[![release](https://img.shields.io/github/v/release/ayuanxx-max/dsh-session-fork-tree)](https://github.com/ayuanxx-max/dsh-session-fork-tree/releases)
+[![stars](https://img.shields.io/github/stars/ayuanxx-max/dsh-session-fork-tree)](https://github.com/ayuanxx-max/dsh-session-fork-tree/stargazers)
+
+> **30 秒理解**：DSH 侧边栏把 fork 出来的会话挂到父会话下面，圆角导轨 + 绿色展开器 + 祖先链高亮，适合做分支实验。
+>
+> 兼容 DSH Desktop / Web；安装见下方「安装」，卸载见「卸载」。
+
+### 相关插件
+
+- [dsh-session-accordion](https://github.com/ayuanxx-max/dsh-session-accordion) —— 会话折叠成单行
+- [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) —— DSH 插件精选列表
+
+
 【DSH 会话分叉树排列功能】把 DSH 侧栏里"另起一行"的分叉会话，变成挂在父会话下面的树：缩进 + 圆角连接线 + 绿色 `+` 折叠按钮 + 悬停祖先链高亮。
 
 DSH Session Fork Tree Arrangement turns forked sessions that used to appear as unrelated rows into a tree under their parent: indent, rounded connector, a green `+` expander, and ancestor-chain highlighting on hover.
