@@ -109,16 +109,14 @@
 }
 
 
-/* Marker rides the last character of the title instead of the row's right
-   edge; the old absolute rule is neutralised. */
+/* Marker rides the last character of the title. JS sets `position: relative`
+   plus a measured `top`, so no !important may lock those two properties. */
 .ft-toggle {
-  position: static !important;
-  top: auto !important;
-  right: auto !important;
-  transform: none !important;
-  z-index: auto !important;
-  margin: 0 0 0 3px !important;
-  vertical-align: middle !important;
-  align-self: center !important;
+  position: static;
+  transform: none;
+  z-index: auto;
+  margin: 0 0 0 5px;
+  vertical-align: middle;
+  align-self: center;
   display: inline-flex;
 }

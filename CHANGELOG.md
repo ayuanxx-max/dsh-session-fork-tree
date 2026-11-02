@@ -2,6 +2,12 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.7 — 2026-11-02
+
+- 标记按钮垂直居中改为测量校正（修掉 `!important` 锁死 `position/top` 的问题）。
+- 按钮与标题之间留 5px（右侧移 2px）。
+- Marker centring is measured; 5px gap to the title.
+
 ## 0.9.6 — 2026-11-02
 
 - +/− 垂直居中（按测量校正，不再贴文字底部）。

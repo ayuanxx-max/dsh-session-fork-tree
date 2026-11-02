@@ -337,19 +337,28 @@ window.__ModuleLoader__.load({
     /** Nudge the marker so its centre matches the title line's centre. */
     function alignToggle(row) {
       const btn = toggles.get(row);
-      if (!btn || !btn.parentElement) return;
-      const host = btn.parentElement.getBoundingClientRect();
-      if (host.height === 0) return;
+      if (!btn || !btn.parentElement) return null;
+      const rowBox = row.getBoundingClientRect();
+      if (rowBox.height === 0) return null;
       const box = btn.getBoundingClientRect();
-      const delta = (host.top + host.height / 2) - (box.top + box.height / 2);
+      if (box.height === 0) return null;
+      const delta = (rowBox.top + rowBox.height / 2) - (box.top + box.height / 2);
       const prev = typeof btn.__ftTop === 'number' ? btn.__ftTop : 0;
       let next = prev + delta;
-      if (next > 10) next = 10;
-      if (next < -10) next = -10;
-      if (Math.abs(next - prev) < 0.5) return;
-      btn.__ftTop = next;
-      btn.style.position = 'relative';
-      btn.style.top = next + 'px';
+      if (next > 12) next = 12;
+      if (next < -12) next = -12;
+      if (Math.abs(next - prev) >= 0.5) {
+        btn.__ftTop = next;
+        btn.style.position = 'relative';
+        btn.style.top = next + 'px';
+      }
+      return {
+        rowH: Math.round(rowBox.height),
+        titleH: Math.round((btn.parentElement.getBoundingClientRect().height || 0)),
+        btnTop: Math.round(btn.getBoundingClientRect().top - rowBox.top),
+        offset: Math.round((btn.getBoundingClientRect().top + btn.getBoundingClientRect().height / 2) - (rowBox.top + rowBox.height / 2)),
+        applied: Math.round(next),
+      };
     }
 
     function applyLayout(row) {
@@ -664,6 +673,11 @@ window.__ModuleLoader__.load({
           hot: row.getAttribute('data-ft-hot') === '1',
           hidden: row.hasAttribute('data-ft-hidden'),
           toggle: toggles.has(row),
+          centre: alignToggle(row),
+          titleText: (function () {
+            const el = titleEl(row);
+            return el === null ? '' : String(el.textContent || '').replace('+', '').replace('\u2212', '').trim().slice(0, 24);
+          })(),
           open: expanded.has(id),
           children: childCount(id),
           seat: (function () {
