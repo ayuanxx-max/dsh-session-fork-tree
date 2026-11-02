@@ -2,6 +2,13 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.5 — 2026-11-02
+
+- 修复 0.9.4 的回归：删除“按标题推导父子关系”的兜底（它会把树倒置，导致点击后全部平铺展开、反复重排）。
+- 重排前先比较现有顺序，一致就跳过（消除每次轮询都重排导致的“循环刷新”）。
+- 每行只保留一个标记按钮，样式改为标题后的行内按钮。
+- Fixes the 0.9.4 regression; removes the name-derived fallback and skips redundant reordering.
+
 ## 0.9.4 — 2026-11-02
 
 - 去掉行右端的按钮：每行只保留一个按钮，并清理旧版本残留的 `.ft-toggle`。

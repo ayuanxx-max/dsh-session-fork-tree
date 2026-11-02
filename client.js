@@ -67,6 +67,7 @@ window.__ModuleLoader__.load({
       return apiBase + path;
     }
     let orderTimer = 0;
+    let reorderCount = 0;
     let lastApply = 0;
 
     const rows = new Map();
@@ -117,13 +118,7 @@ window.__ModuleLoader__.load({
         applyVisibility();
         sendReport();
       } catch (err) {
-        console.warn('[fork-tree] lineage fetch failed, falling back to names:', err);
-        if (applyTextual()) {
-          applyOrder();
-          for (const [, row] of rows) applyLayout(row);
-          refreshToggles();
-          applyVisibility();
-        }
+        console.warn('[fork-tree] lineage fetch failed:', err);
       } finally {
         loading = false;
       }
@@ -280,8 +275,25 @@ window.__ModuleLoader__.load({
           display = '';
         }
         if (display.indexOf('flex') !== -1) {
-          for (let i = 0; i < ordered.length; i += 1) ordered[i].slot.style.order = String(i);
+          let same = true;
+          for (let i = 0; i < ordered.length; i += 1) {
+            if (ordered[i].slot.style.order !== String(i)) same = false;
+          }
+          if (!same) {
+            reorderCount += 1;
+            for (let i = 0; i < ordered.length; i += 1) ordered[i].slot.style.order = String(i);
+          }
         } else {
+          const wanted = ordered.map(function (e) { return e.slot; });
+          const current = Array.from(container.children).filter(function (el) {
+            return wanted.indexOf(el) !== -1;
+          });
+          let already = current.length === wanted.length;
+          for (let i = 0; already && i < wanted.length; i += 1) {
+            if (current[i] !== wanted[i]) already = false;
+          }
+          if (already) continue;
+          reorderCount += 1;
           let cursor = ordered[0].slot;
           for (let i = 1; i < ordered.length; i += 1) {
             const slot = ordered[i].slot;
@@ -498,40 +510,15 @@ window.__ModuleLoader__.load({
       // Kept inside the title element (so React never removes it), but laid out
       // absolutely against the row: always at the right edge of the title line,
       // vertically centred, and it can never shift the title text.
-      // Exactly one toggle per row: drop leftovers from earlier versions.
       const strays = row.querySelectorAll('.ft-toggle');
       for (const stray of strays) {
         if (stray !== button) stray.remove();
       }
-      // Stay glued to the last character: append inside the deepest text leaf
-      // of the title, so the marker follows the text and not the row edge.
       const title = titleEl(row);
-      let host = title;
       if (title !== null) {
-        const leaves = title.querySelectorAll('*');
-        for (const leaf of leaves) {
-          if (leaf.children.length === 0 && (leaf.textContent || '').trim()) {
-            host = leaf;
-            break;
-          }
-        }
-      }
-      if (host !== null) {
-        if (button.parentElement !== host) host.appendChild(button);
+        if (button.parentElement !== title) title.appendChild(button);
       } else if (button.parentElement === null) {
         row.appendChild(button);
-      }
-      // Vertically centre the row and the title line around the marker.
-      try {
-        const rowStyle = getComputedStyle(row);
-        if (rowStyle.display.indexOf('flex') !== -1) row.style.alignItems = 'center';
-        const hostParent = host === null ? null : host.parentElement;
-        if (hostParent) {
-          const parentStyle = getComputedStyle(hostParent);
-          if (parentStyle.display.indexOf('flex') !== -1) hostParent.style.alignItems = 'center';
-        }
-      } catch (err) {
-        /* layout stays best-effort */
       }
       try {
         if (getComputedStyle(row).position === 'static') row.style.position = 'relative';
@@ -579,51 +566,6 @@ window.__ModuleLoader__.load({
       return seat;
     }
 
-    /** Title text of a row, excluding our own "+" button. */
-    function titleText(row) {
-      const el = titleEl(row);
-      if (el === null) return '';
-      let text = '';
-      for (const node of el.childNodes) {
-        if (node.nodeType === 3) text += node.nodeValue || '';
-        else if (node.nodeType === 1) {
-          if (node.classList && node.classList.contains('ft-toggle')) continue;
-          text += node.textContent || '';
-        }
-      }
-      return text.replace(/\s+/g, ' ').trim();
-    }
-
-    /**
-     * Last-resort lineage: derive the tree from the names we already wrote.
-     * A row whose title starts with another row's title + " " is its child.
-     * Works with zero Host data (custom scheme, blocked routes, old versions).
-     */
-    function applyTextual() {
-      const titles = new Map();
-      for (const [id, row] of rows) {
-        const text = titleText(row);
-        if (text) titles.set(id, text);
-      }
-      if (titles.size === 0) return false;
-      const parents = new Map();
-      const byId = new Map();
-      for (const [id, text] of titles) {
-        let best = null;
-        for (const [otherId, otherText] of titles) {
-          if (otherId === id || otherText === text) continue;
-          const direct = text.startsWith(otherText + ' ');
-          const numbered = new RegExp('^' + otherText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\(\\d+\\)$').test(text);
-          if (!direct && !numbered) continue;
-          if (best === null || otherText.length > titles.get(best).length) best = otherId;
-        }
-        parents.set(id, best === null ? null : best);
-        byId.set(id, { id, parent: best, textual: true });
-      }
-      lineage = { at: Date.now(), parents, byId, textual: true };
-      return true;
-    }
-
     function decorate(el, sessionId, title) {
       if (typeof sessionId !== 'string') return;
       const row = rowOf(el, title);
@@ -631,7 +573,6 @@ window.__ModuleLoader__.load({
       rows.set(sessionId, row);
       row.setAttribute('data-ft-session', sessionId);
       wireHover(row, sessionId);
-      if (!lineage.parents.has(sessionId)) applyTextual();
       const layout = applyLayout(row);
       // The leading seat hosts the working spinner / waiting clock; on a child
       // row the rail runs through that 16px cell, so shift the seat one
@@ -675,20 +616,6 @@ window.__ModuleLoader__.load({
           hot: row.getAttribute('data-ft-hot') === '1',
           hidden: row.hasAttribute('data-ft-hidden'),
           toggle: toggles.has(row),
-          toggleGeo: (function () {
-            const btn = toggles.get(row);
-            if (!btn) return null;
-            const a = row.getBoundingClientRect();
-            const b = btn.getBoundingClientRect();
-            const actions = row.querySelector('[class*="rowActions"]');
-            const act = actions ? actions.getBoundingClientRect() : null;
-            return {
-              x: Math.round(b.left - a.left),
-              w: Math.round(b.width),
-              right: Math.round(b.right - a.left),
-              actionsLeft: act ? Math.round(act.left - a.left) : null,
-            };
-          })(),
           open: expanded.has(id),
           children: childCount(id),
           seat: (function () {
@@ -730,6 +657,7 @@ window.__ModuleLoader__.load({
             at: lineage.at,
             count: lineage.parents.size,
             rows: rows.size,
+            reorders: reorderCount,
             styled,
             diagnostics: diagnostics.slice(-20),
             live: liveRows(),
