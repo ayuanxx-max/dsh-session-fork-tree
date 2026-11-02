@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.2 — 2026-11-02
+
+- 回退 0.9.1 的按钮改动（撤销内联规则），行为回到 0.9.0。
+- Reverts the 0.9.1 toggle change; behaviour is back to 0.9.0.
+
 ## 0.9.1 — 2026-11-02
 
 - `+` 改为**标题文本后的行内按钮**（不再绝对定位到行右端），不会被会话的默认悬停按钮（归档/置顶）遮挡；展开态显示为带绿框的 `−`。
