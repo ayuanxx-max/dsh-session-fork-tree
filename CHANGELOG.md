@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.1 — 2026-11-02
+
+- `+` 改为**标题文本后的行内按钮**（不再绝对定位到行右端），不会被会话的默认悬停按钮（归档/置顶）遮挡；展开态显示为带绿框的 `−`。
+- The `+` is an inline button right after the title text (no longer pinned to the row's right edge), so the row's hover actions cannot cover it; the open state renders a green-framed `−`.
+
 ## 0.9.0 — 2026-10-30
 
 - 彻底修复“无 +、无 ╰”：客户端改为三层取数——注入的 base、`window.__DSH_BOOT__`、页面已发生的 Host 请求 origin（性能条目），逐层尝试。

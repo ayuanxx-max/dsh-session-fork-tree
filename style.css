@@ -1,4 +1,4 @@
-﻿/* Served by GET /fork-tree/style.css, refreshed every 15 s.
+/* Served by GET /fork-tree/style.css, refreshed every 15 s.
    The connector is a single 鈺?shape on the row itself: a vertical half-height
    segment plus a horizontal at its bottom, rounded at the junction. Positions
    come from measured pixel values (--ft-rail-x / --ft-elbow-w) and are
@@ -56,20 +56,23 @@
    push it around; the glyph flips to "鈭? while the subtree is open.
    Fixed size keeps the row geometry identical in both states. */
 .ft-toggle {
+  position: absolute;
+  left: var(--ft-plus-x, 0px);
+  top: var(--ft-plus-y, 50%);
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
   width: 14px;
   height: 14px;
-  margin-left: 4px;
+  margin-left: 0;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 4px;
   box-sizing: border-box;
   color: #22c55e;
   font: 600 12px/12px system-ui, sans-serif;
-  vertical-align: -1px;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -97,13 +100,13 @@
 [data-ft-depth] [data-slot="sidebar.session.row.leading"] {
   transform: translateX(-1em);
 }
-/* Toggle placement: right edge of the title line, vertically centred, and
-   absolutely positioned so it can never shift the title text. */
+/* Toggle placement: inline immediately after the title box, vertically centred
+   with the title line, so the row's hover actions can never cover it. */
 .ft-toggle {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  margin: 0;
-  z-index: 3;
+  position: static;
+  margin: 0 0 0 4px;
+  transform: none;
+  align-self: center;
+  vertical-align: middle;
+  flex: 0 0 auto;
 }
