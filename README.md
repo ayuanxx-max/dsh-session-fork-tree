@@ -64,6 +64,28 @@ DSH 里"分叉"会新建一个会话，但它和父会话在侧栏里是**两条
 
 ### 安装
 
+**npm（推荐）**
+
+```bash
+# 桌面版（profile=desktop）
+dsh plugin --profile desktop add dsh-session-fork-tree@0.9.0
+
+# 或免全局安装
+npx -y @deepseek-ai/dsh plugin --profile desktop add dsh-session-fork-tree@0.9.0
+
+# Web UI（profile=web）
+dsh plugin --profile web add dsh-session-fork-tree@0.9.0
+```
+
+安装后**完全退出 DSH 再启动**；卸载：
+
+```bash
+dsh plugin --profile desktop remove dsh-session-fork-tree
+```
+
+> 以下为源码方式（开发 / 离线环境）：
+
+
 前置：DSH 桌面版或 `dsh web`，一个可用的 profile（默认 `desktop`）。
 
 ```powershell
