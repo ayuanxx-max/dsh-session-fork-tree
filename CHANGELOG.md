@@ -2,6 +2,12 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.6 — 2026-11-02
+
+- +/− 垂直居中（按测量校正，不再贴文字底部）。
+- 性能：移除全局 body MutationObserver 与 20s 全表轮询；改为侧栏范围内的懒加载观察者，轮询在页面隐藏时暂停，隐藏行跳过几何测量，可见性切换不再重复写属性。
+- Vertical centring for the marker; removes the global observer and periodic full sweeps, pauses polling on hidden pages.
+
 ## 0.9.5 — 2026-11-02
 
 - 修复 0.9.4 的回归：删除“按标题推导父子关系”的兜底（它会把树倒置，导致点击后全部平铺展开、反复重排）。

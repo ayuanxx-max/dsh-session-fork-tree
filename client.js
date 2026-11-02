@@ -310,8 +310,51 @@ window.__ModuleLoader__.load({
       lastApply = Date.now();
     }
 
+    let observerInstalled = false;
+
+    /** Observe only the sidebar list, and only for row insertions. */
+    function installObserver() {
+      if (observerInstalled) return;
+      try {
+        const first = rows.values().next().value;
+        const slot = first && first.parentElement;
+        const container = slot && slot.parentElement;
+        if (!container) return;
+        observerInstalled = true;
+        let timer = 0;
+        new MutationObserver(function () {
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            if (Date.now() - lastApply < 400) return;
+            applyOrder();
+          }, 150);
+        }).observe(container, { childList: true });
+      } catch (err) {
+        /* observer is an optimisation only */
+      }
+    }
+
+    /** Nudge the marker so its centre matches the title line's centre. */
+    function alignToggle(row) {
+      const btn = toggles.get(row);
+      if (!btn || !btn.parentElement) return;
+      const host = btn.parentElement.getBoundingClientRect();
+      if (host.height === 0) return;
+      const box = btn.getBoundingClientRect();
+      const delta = (host.top + host.height / 2) - (box.top + box.height / 2);
+      const prev = typeof btn.__ftTop === 'number' ? btn.__ftTop : 0;
+      let next = prev + delta;
+      if (next > 10) next = 10;
+      if (next < -10) next = -10;
+      if (Math.abs(next - prev) < 0.5) return;
+      btn.__ftTop = next;
+      btn.style.position = 'relative';
+      btn.style.top = next + 'px';
+    }
+
     function applyLayout(row) {
       placeToggle(row);
+      alignToggle(row);
       const id = row.getAttribute('data-ft-session');
       if (!id) return null;
       const depth = depthOf(id);
@@ -325,6 +368,7 @@ window.__ModuleLoader__.load({
       row.setAttribute('data-ft-depth', String(depth));
       row.style.setProperty('--ft-d', String(depth));
 
+      if (row.getClientRects().length === 0) return null;
       const childX = titleLeft(row);
       if (childX === null) return null;
       const parentRow = rows.get(ancestorsOf(id)[0]);
@@ -332,8 +376,9 @@ window.__ModuleLoader__.load({
       if (parentRow) {
         const px = titleLeft(parentRow);
         if (px !== null) {
-          const delta = parentRow.getBoundingClientRect().left - row.getBoundingClientRect().left;
-          railX = Math.round(px + delta);
+          const rowLeft = row.getBoundingClientRect().left;
+          const parentLeft = parentRow.getBoundingClientRect().left;
+          railX = Math.round(px + (parentLeft - rowLeft));
         }
       }
       const elbowW = Math.max(4, childX - railX - 2);
@@ -392,9 +437,11 @@ window.__ModuleLoader__.load({
         const visible = isVisible(id);
         const wasHidden = row.hasAttribute('data-ft-hidden');
         if (visible) {
-          row.removeAttribute('data-ft-hidden');
-          if (wasHidden) shown.push(row);
-        } else {
+          if (wasHidden) {
+            row.removeAttribute('data-ft-hidden');
+            shown.push(row);
+          }
+        } else if (!wasHidden) {
           row.setAttribute('data-ft-hidden', '1');
         }
       }
@@ -571,6 +618,7 @@ window.__ModuleLoader__.load({
       const row = rowOf(el, title);
       if (row === null) return;
       rows.set(sessionId, row);
+      installObserver();
       row.setAttribute('data-ft-session', sessionId);
       wireHover(row, sessionId);
       const layout = applyLayout(row);
@@ -697,30 +745,18 @@ window.__ModuleLoader__.load({
       ensureStyle();
       refreshStyle();
       load();
-      setInterval(refreshStyle, 15000);
-      setInterval(load, 10000);
-      setInterval(function () {
-        for (const [id, row] of rows) {
-          applyLayout(row);
-          applySeatOffset(row, depthOf(id));
-        }
-      }, 20000);
-      try {
-        let t = 0;
-        new MutationObserver(function () {
-          if (Date.now() - lastApply < 300) return;
-          clearTimeout(t);
-          t = setTimeout(function () {
-            applyOrder();
-            for (const [id, row] of rows) {
-              applyLayout(row);
-              applySeatOffset(row, depthOf(id));
-            }
-          }, 120);
-        }).observe(document.body, { childList: true, subtree: true });
-      } catch (err) {
-        /* observer is an optimisation only */
-      }
+      const idle = function (fn) {
+        return function () {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          fn();
+        };
+      };
+      setInterval(idle(refreshStyle), 20000);
+      setInterval(idle(load), 12000);
+      // Rows are decorated from the slot callback as they mount, so a global
+      // body observer is unnecessary: it fired on every chat token and forced a
+      // full reorder each time. A scoped observer is installed lazily instead.
+      installObserver();
       try {
         window.addEventListener('resize', function () {
           clearTimeout(orderTimer);
