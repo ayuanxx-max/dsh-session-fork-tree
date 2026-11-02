@@ -2,6 +2,12 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.4 — 2026-11-02
+
+- 去掉行右端的按钮：每行只保留一个按钮，并清理旧版本残留的 `.ft-toggle`。
+- 按钮紧跟标题最后一个字之后（插入到标题最深层文本元素内），会话行与标题行垂直居中。
+- Marker rides the last title character, duplicates are removed, rows are vertically centred.
+
 ## 0.9.3 — 2026-11-02
 
 - 恢复 0.9.1 的按钮行为（标题后内联、展开显示绿框 −）；不追加“标题截断时固定按钮”的额外规则。

@@ -498,13 +498,40 @@ window.__ModuleLoader__.load({
       // Kept inside the title element (so React never removes it), but laid out
       // absolutely against the row: always at the right edge of the title line,
       // vertically centred, and it can never shift the title text.
+      // Exactly one toggle per row: drop leftovers from earlier versions.
+      const strays = row.querySelectorAll('.ft-toggle');
+      for (const stray of strays) {
+        if (stray !== button) stray.remove();
+      }
+      // Stay glued to the last character: append inside the deepest text leaf
+      // of the title, so the marker follows the text and not the row edge.
       const title = titleEl(row);
-      if (title !== null && title.parentElement !== null) {
-        if (button.previousElementSibling !== title || button.parentElement !== title.parentElement) {
-          title.parentElement.insertBefore(button, title.nextSibling);
+      let host = title;
+      if (title !== null) {
+        const leaves = title.querySelectorAll('*');
+        for (const leaf of leaves) {
+          if (leaf.children.length === 0 && (leaf.textContent || '').trim()) {
+            host = leaf;
+            break;
+          }
         }
+      }
+      if (host !== null) {
+        if (button.parentElement !== host) host.appendChild(button);
       } else if (button.parentElement === null) {
         row.appendChild(button);
+      }
+      // Vertically centre the row and the title line around the marker.
+      try {
+        const rowStyle = getComputedStyle(row);
+        if (rowStyle.display.indexOf('flex') !== -1) row.style.alignItems = 'center';
+        const hostParent = host === null ? null : host.parentElement;
+        if (hostParent) {
+          const parentStyle = getComputedStyle(hostParent);
+          if (parentStyle.display.indexOf('flex') !== -1) hostParent.style.alignItems = 'center';
+        }
+      } catch (err) {
+        /* layout stays best-effort */
       }
       try {
         if (getComputedStyle(row).position === 'static') row.style.position = 'relative';

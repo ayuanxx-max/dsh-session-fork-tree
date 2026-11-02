@@ -110,3 +110,18 @@
   vertical-align: middle;
   flex: 0 0 auto;
 }
+
+
+/* Marker rides the last character of the title, never the row's right edge;
+   the row keeps its content vertically centred. */
+.ft-toggle {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  transform: none !important;
+  z-index: auto !important;
+  margin: 0 0 0 3px !important;
+  vertical-align: middle !important;
+  align-self: center !important;
+  display: inline-flex;
+}
