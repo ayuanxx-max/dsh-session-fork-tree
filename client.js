@@ -499,8 +499,10 @@ window.__ModuleLoader__.load({
       // absolutely against the row: always at the right edge of the title line,
       // vertically centred, and it can never shift the title text.
       const title = titleEl(row);
-      if (title !== null) {
-        if (button.parentElement !== title) title.appendChild(button);
+      if (title !== null && title.parentElement !== null) {
+        if (button.previousElementSibling !== title || button.parentElement !== title.parentElement) {
+          title.parentElement.insertBefore(button, title.nextSibling);
+        }
       } else if (button.parentElement === null) {
         row.appendChild(button);
       }
@@ -646,6 +648,20 @@ window.__ModuleLoader__.load({
           hot: row.getAttribute('data-ft-hot') === '1',
           hidden: row.hasAttribute('data-ft-hidden'),
           toggle: toggles.has(row),
+          toggleGeo: (function () {
+            const btn = toggles.get(row);
+            if (!btn) return null;
+            const a = row.getBoundingClientRect();
+            const b = btn.getBoundingClientRect();
+            const actions = row.querySelector('[class*="rowActions"]');
+            const act = actions ? actions.getBoundingClientRect() : null;
+            return {
+              x: Math.round(b.left - a.left),
+              w: Math.round(b.width),
+              right: Math.round(b.right - a.left),
+              actionsLeft: act ? Math.round(act.left - a.left) : null,
+            };
+          })(),
           open: expanded.has(id),
           children: childCount(id),
           seat: (function () {

@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.3 — 2026-11-02
+
+- 恢复 0.9.1 的按钮行为（标题后内联、展开显示绿框 −）；不追加“标题截断时固定按钮”的额外规则。
+- Restores the 0.9.1 toggle behaviour; no extra truncation rule is added.
+
 ## 0.9.2 — 2026-11-02
 
 - 回退 0.9.1 的按钮改动（撤销内联规则），行为回到 0.9.0。
