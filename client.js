@@ -236,6 +236,38 @@ window.__ModuleLoader__.load({
       return null;
     }
 
+    /**
+     * Keep collapse/expand controls BELOW every session row of their group.
+     * DSH renders its own "收起" node; when the group list is reordered with
+     * CSS `order` that node can end up between sessions, so it is pinned to the
+     * end of the nearest ancestor that actually contains session rows.
+     */
+    function pinFooters() {
+      try {
+        const nodes = document.querySelectorAll('button,[role="button"],div,span,a');
+        for (const el of nodes) {
+          if (el.children.length > 0) continue;
+          const text = (el.textContent || '').trim();
+          if (!/^(收起|展开|显示更多|显示更少|Show more|Show less)$/i.test(text)) continue;
+          let parent = el.parentElement;
+          let hops = 0;
+          while (parent && hops < 4 && !parent.querySelector('[data-ft-session]')) {
+            parent = parent.parentElement;
+            hops += 1;
+          }
+          if (!parent) continue;
+          const style = getComputedStyle(parent);
+          if (style.display.indexOf('flex') === -1) {
+            parent.style.display = 'flex';
+            parent.style.flexDirection = 'column';
+          }
+          el.style.order = '999999';
+        }
+      } catch (err) {
+        /* footer pinning is best-effort */
+      }
+    }
+
     function applyOrder() {
       const groups = new Map();
       for (const [id, row] of rows) {
@@ -358,6 +390,7 @@ window.__ModuleLoader__.load({
           if (changed) reorderCount += 1;
         }
       }
+      pinFooters();
       lastApply = Date.now();
     }
 
@@ -888,7 +921,40 @@ window.__ModuleLoader__.load({
       return out;
     }
 
-    function sendReport() {
+    function collapseInfo() {
+    try {
+      const all = document.querySelectorAll('body *');
+      for (const el of all) {
+        const text = (el.textContent || '').trim();
+        if (text !== '收起') continue;
+        if (el.children.length > 0) continue;
+        const parent = el.parentElement;
+        const kids = parent ? Array.from(parent.children) : [];
+        let sessionKids = 0;
+        for (const kid of kids) {
+          if (kid === el) continue;
+          if (kid.querySelector && kid.querySelector('[data-ft-session]')) sessionKids += 1;
+        }
+        return {
+          tag: el.tagName,
+          cls: String(el.className || '').slice(0, 60),
+          parentCls: parent ? String(parent.className || '').slice(0, 60) : null,
+          parentDisplay: parent ? getComputedStyle(parent).display : null,
+          siblings: kids.length,
+          sessionKids,
+          order: el.style.order || null,
+          parentOrderKids: kids.slice(0, 6).map(function (k) {
+            return (String(k.className || '').slice(0, 18) || k.tagName) + ':' + (k.style.order || '-');
+          }),
+        };
+      }
+    } catch (err) {
+      return { error: String(err && err.message ? err.message : err) };
+    }
+    return null;
+  }
+
+  function sendReport() {
       lastReport = Date.now();
       try {
         fetch(apiUrl('/fork-tree/report'), {
@@ -903,6 +969,7 @@ window.__ModuleLoader__.load({
             styled,
             diagnostics: diagnostics.slice(-20),
             live: liveRows(),
+            collapse: collapseInfo(),
           }),
         }).catch(function () {});
       } catch (err) {

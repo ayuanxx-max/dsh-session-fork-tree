@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.26 — 2026-11-03
+
+- 新增 `pinFooters()`：识别「收起/展开/显示更多」控件并钉到其含会话祖先的末尾（`order: 999999`，容器必要时转 flex column），确保「收起」永远在会话最底部。
+- 归档 OpenSpec 变更 `2026-11-03-pin-collapse-footer`，规格新增「收起控件位于会话之后」需求。
+- Collapse controls are pinned after every session row of their group.
 ## 0.9.24 — 2026-11-03
 
 - 横线长度改为**固定 10px（所有层级，含第 1 层）**，不再随父间距推导；标题由同一处代码左移 `shift`，实测 `aligned=2px`。
