@@ -13,7 +13,7 @@
 [data-ft-depth] {
   position: relative !important;
   box-sizing: border-box;
-  padding-left: calc(var(--ft-d, 0) * 16px) !important;
+  padding-left: var(--ft-pad, 0px) !important;
   transition: background-color .12s ease;
 }
 

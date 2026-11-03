@@ -325,8 +325,29 @@ window.__ModuleLoader__.load({
           if (positions.length < 2) continue;
           container.style.display = 'flex';
           container.style.flexDirection = 'column';
+          // Non-session children (the "收起" footer control and friends) are
+          // pinned AFTER every session row: pinning them to their native index
+          // let a late session slip below the footer and overflow the group.
+          let maxPos = 0;
+          for (const pos of positions) if (pos > maxPos) maxPos = pos;
+          // Group headers must stay ABOVE their sessions, while a footer like
+          // "收起" must stay BELOW them. Only the footer-like text is pinned to
+          // the end; every other non-session child is pinned to the front.
+          const isFooter = function (el) {
+            const text = String(el.textContent || '').trim();
+            return /收起|折叠|展开|more|less|show/i.test(text);
+          };
+          let head = 0;
+          let tail = 0;
           for (let i = 0; i < kids.length; i += 1) {
-            if (!want.has(kids[i])) kids[i].style.order = String(i);
+            if (want.has(kids[i])) continue;
+            if (isFooter(kids[i])) {
+              kids[i].style.order = String(maxPos + 1 + tail);
+              tail += 1;
+            } else {
+              head += 1;
+              kids[i].style.order = String(-head);
+            }
           }
           let changed = false;
           for (let i = 0; i < ordered.length; i += 1) {
@@ -391,6 +412,18 @@ window.__ModuleLoader__.load({
       };
     }
 
+    let baseTitleX = NaN;
+
+    /** Title x of a depth-0 row, measured once per pass when available. */
+    function titleLeftOfRoot() {
+      for (const [id, row] of rows) {
+        if (depthOf(id) !== 0) continue;
+        const x = titleLeft(row);
+        if (x !== null) return x;
+      }
+      return NaN;
+    }
+
     function applyLayout(row) {
       placeToggle(row);
       alignToggle(row);
@@ -407,11 +440,44 @@ window.__ModuleLoader__.load({
       row.setAttribute('data-ft-depth', String(depth));
       row.style.setProperty('--ft-d', String(depth));
 
+      // Exact 16px steps, capped at 5 levels so a deep tree cannot eat the
+      // sidebar width. `naturalPad` is the un-shortened indent used for
+      // measuring; the final pad subtracts the shortened elbow length below.
+      const step = 16;
+      const level = Math.min(depth, 5);
+      let naturalPad = null;
+      try {
+        if (!Number.isFinite(baseTitleX)) baseTitleX = titleLeftOfRoot();
+        if (Number.isFinite(baseTitleX)) {
+          const rowLeft = row.getBoundingClientRect().left;
+          naturalPad = Math.max(0, Math.round(baseTitleX + level * step - rowLeft));
+          row.style.setProperty('--ft-pad', naturalPad + 'px');
+          // one correction pass: the row's own padding/border can swallow part
+          // of the indent, so nudge until the title really sits at the target
+          const target = baseTitleX + level * step;
+          const measured = titleLeft(row);
+          if (measured !== null) {
+            const delta = target - measured;
+            if (Math.abs(delta) >= 1) {
+              naturalPad = Math.max(0, Math.round(naturalPad + delta));
+              row.style.setProperty('--ft-pad', naturalPad + 'px');
+            }
+          }
+        }
+      } catch (err) {
+        /* keep the CSS fallback */
+      }
+
       if (row.getClientRects().length === 0) return null;
+      // measure at the natural indent, otherwise every pass would reuse the
+      // already-shifted title position and shrink the elbow again
+      row.style.removeProperty('--ft-shift');
       const childX = titleLeft(row);
       if (childX === null) return null;
+      // titleLeft() already returns a ROW-LOCAL offset, so translate the
+      // parent's title into this row's coordinate space with the row-left delta.
       const parentRow = rows.get(ancestorsOf(id)[0]);
-      let railX = childX - 8;
+      let railX = Math.round(childX - 8);
       if (parentRow) {
         const px = titleLeft(parentRow);
         if (px !== null) {
@@ -420,10 +486,22 @@ window.__ModuleLoader__.load({
           railX = Math.round(px + (parentLeft - rowLeft));
         }
       }
-      const elbowW = Math.max(4, childX - railX - 2);
+      // SPEC: openspec/changes/fix-fork-rail-geometry — the horizontal segment
+      // is a fixed 10px at EVERY depth; the title absorbs the difference.
+      const naturalElbow = Math.max(4, Math.round(childX - railX - 2));
+      const elbowW = Math.min(10, naturalElbow);
+      const shift = naturalElbow - elbowW;
+      // ONE place decides both numbers: the elbow width and the matching title
+      // left-shift always travel together, so a later edit cannot keep one and
+      // drop the other.
+      if (naturalPad !== null) {
+        row.style.setProperty('--ft-pad', Math.max(0, naturalPad - shift) + 'px');
+      }
+      if (shift > 0) row.style.setProperty('--ft-shift', shift + 'px');
+      else row.style.removeProperty('--ft-shift');
       row.style.setProperty('--ft-rail-x', railX + 'px');
       row.style.setProperty('--ft-elbow-w', elbowW + 'px');
-      return { railX, elbowW, childX };
+      return { railX, elbowW, childX, shift, naturalPad };
     }
 
     function setHot(sessionId, on) {
@@ -720,7 +798,26 @@ window.__ModuleLoader__.load({
           id: id.slice(0, 16),
           depth: row.getAttribute('data-ft-depth'),
           railX: row.style.getPropertyValue('--ft-rail-x'),
+          left: Math.round(row.getBoundingClientRect().left),
+          parentTitle: (function () {
+            const pr = rows.get(ancestorsOf(id)[0]);
+            if (!pr) return null;
+            return titleLeft(pr);
+          })(),
+          parentLeft: (function () {
+            const pr = rows.get(ancestorsOf(id)[0]);
+            return pr ? Math.round(pr.getBoundingClientRect().left) : null;
+          })(),
           elbowW: row.style.getPropertyValue('--ft-elbow-w'),
+          pad: row.style.getPropertyValue('--ft-pad'),
+          shiftW: row.style.getPropertyValue('--ft-shift'),
+          aligned: (function () {
+            const rail = parseFloat(row.style.getPropertyValue('--ft-rail-x'));
+            const elbow = parseFloat(row.style.getPropertyValue('--ft-elbow-w'));
+            const tx = titleLeft(row);
+            if (!Number.isFinite(rail) || !Number.isFinite(elbow) || tx === null) return null;
+            return Math.round(tx - (rail + elbow));
+          })(),
           titleX: titleLeft(row),
           slotIndex,
           hot: row.getAttribute('data-ft-hot') === '1',
