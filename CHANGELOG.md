@@ -2,6 +2,12 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.24 — 2026-11-03
+
+- 横线长度改为**固定 10px（所有层级，含第 1 层）**，不再随父间距推导；标题由同一处代码左移 `shift`，实测 `aligned=2px`。
+- 缩进 16px/层，封顶 5 层；新增缩进修正回环，抵消 DSH 自身内边距。
+- 引入 OpenSpec 规格与闸门（`openspec/specs/sidebar-fork-tree/spec.md`、`tools/check-fork-tree.py`）。
+- Fixed 10px rail at every depth; the title shift is produced by the same code path.
 ## 0.9.14 — 2026-11-03
 
 - 修复 DSH 升级后父子乱序：列表容器改为 block 布局后 `order` 失效。现在运行期自适应——容器是 flex 就直接设 `order`，是 block 就一次性转为 flex column，并把非会话子节点钉回原槽位，再按树序分配 `order`；全程不移动 React 节点，不依赖 DSH 的 DOM 结构细节。

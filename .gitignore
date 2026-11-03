@@ -6,3 +6,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.tgz
+
+# OpenSpec agent files
+.dsh/
