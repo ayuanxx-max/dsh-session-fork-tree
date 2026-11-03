@@ -73,8 +73,8 @@ function isAutoTitle(title, parentTitle) {
   return new RegExp('^' + escapeRe(parentTitle) + ' \\(\\d+\\)$').test(title);
 }
 
-async function summaryItems(ctx) {
-  const value = await ctx.sessionController.list({}, new AbortController().signal);
+async function summaryItems(sessions) {
+  const value = await sessions.list({}, new AbortController().signal);
   const items = value && Array.isArray(value.items) ? value.items : [];
   return items.map(function (s) {
     return {
@@ -88,15 +88,15 @@ async function summaryItems(ctx) {
   });
 }
 
-async function titleOf(ctx, sessionId) {
+async function titleOf(sessions, sessionId) {
   try {
-    const value = await ctx.sessionController.projections({ sessionId });
+    const value = await sessions.projections({ sessionId });
     if (value && value.values && typeof value.values.title === 'string') return value.values.title;
   } catch (err) {
     /* fall back to the event scan */
   }
   try {
-    const inspection = await ctx.sessionController.inspect(sessionId);
+    const inspection = await sessions.inspect(sessionId);
     const events = Array.isArray(inspection && inspection.events) ? inspection.events : [];
     for (let i = events.length - 1; i >= 0; i -= 1) {
       const event = events[i];
@@ -112,6 +112,8 @@ async function titleOf(ctx, sessionId) {
 
 function applyInner(ctx, config) {
   const settings = config && typeof config === 'object' ? config : {};
+  const sessions = ctx.sessionController;
+  if (!sessions) throw new Error('sessionController unavailable at activation');
 
   // --- explicit one-shot renames (manual repairs only) ---
   const renames = Array.isArray(settings.renames)
@@ -129,7 +131,7 @@ function applyInner(ctx, config) {
         for (const item of renames) {
           if (cancelled) return;
           try {
-            await ctx.sessionController.rename({ sessionId: item.sessionId, title: item.title });
+            await sessions.rename({ sessionId: item.sessionId, title: item.title });
             console.info('[fork-tree] renamed', item.sessionId, '->', item.title);
           } catch (err) {
             console.warn('[fork-tree] rename failed', item.sessionId, err);
@@ -151,7 +153,7 @@ function applyInner(ctx, config) {
       async function pass() {
         if (cancelled) return;
         try {
-          const items = await summaryItems(ctx);
+          const items = await summaryItems(sessions);
           const byParent = new Map();
           for (const item of items) {
             if (!item.parent) continue;
@@ -160,7 +162,7 @@ function applyInner(ctx, config) {
             byParent.get(item.parent).push(item);
           }
           for (const [parentId, children] of byParent) {
-            const parentTitle = await titleOf(ctx, parentId);
+            const parentTitle = await titleOf(sessions, parentId);
             if (!parentTitle) continue;
             children.sort(function (a, b) {
               return (a.updatedAt || 0) - (b.updatedAt || 0);
@@ -168,12 +170,12 @@ function applyInner(ctx, config) {
             for (let i = 0; i < children.length; i += 1) {
               if (cancelled) return;
               const child = children[i];
-              const title = await titleOf(ctx, child.id);
+              const title = await titleOf(sessions, child.id);
               if (!isAutoTitle(title, parentTitle)) continue;
               const next = parentTitle + SEP + FORK + (i + 1);
               if (next === title) continue;
               try {
-                await ctx.sessionController.rename({ sessionId: child.id, title: next });
+                await sessions.rename({ sessionId: child.id, title: next });
                 console.info('[fork-tree] auto-named', child.id, '->', next);
               } catch (err) {
                 console.warn('[fork-tree] auto-name failed', child.id, err);
@@ -248,7 +250,7 @@ function applyInner(ctx, config) {
 
   async function refreshCache() {
     try {
-      cache.items = await summaryItems(ctx);
+      cache.items = await summaryItems(sessions);
       cache.at = Date.now();
     } catch (err) {
       /* keep the previous snapshot */

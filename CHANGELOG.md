@@ -2,6 +2,11 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.14 — 2026-11-03
+
+- 修复 DSH 升级后父子乱序：列表容器改为 block 布局后 `order` 失效。现在运行期自适应——容器是 flex 就直接设 `order`，是 block 就一次性转为 flex column，并把非会话子节点钉回原槽位，再按树序分配 `order`；全程不移动 React 节点，不依赖 DSH 的 DOM 结构细节。
+- Fixes scrambled parent/child rows after the DSH upgrade (block-layout lists ignored `order`).
+
 ## 0.9.8 — 2026-11-02
 
 - 标记按钮与标题最后一个字之间再右移 2px（间距 7px）。

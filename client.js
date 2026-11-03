@@ -9,7 +9,7 @@
  *  - report: measurements POSTed to /fork-tree/report.
  */
 window.__ModuleLoader__.load({
-  id: '@local/fork-tree',
+  id: 'dsh-session-fork-tree',
   factory(require) {
     const React = require('react');
     const STYLE_ID = 'fork-tree-style';
@@ -68,6 +68,7 @@ window.__ModuleLoader__.load({
     }
     let orderTimer = 0;
     let reorderCount = 0;
+    let gid = 0;
     let lastApply = 0;
 
     const rows = new Map();
@@ -207,15 +208,32 @@ window.__ModuleLoader__.load({
       return Math.round(b.left - a.left);
     }
 
+    /**
+     * Resolve the list container that owns this row.
+     *
+     * The container must be the closest ancestor whose DIRECT children each hold
+     * at most one session row (those children are the per-row slot wrappers).
+     * This keeps every workspace list separate: a looser rule could merge two
+     * workspace groups and drag rows across them.
+     */
     function slotOf(row) {
-      const parent = row.parentElement;
-      if (parent === null) return null;
-      if (parent.querySelectorAll('[data-ft-session]').length >= 2) {
-        return { container: parent, slot: row };
+      let node = row;
+      while (node && node.parentElement) {
+        const parent = node.parentElement;
+        const kids = Array.from(parent.children);
+        let holders = 0;
+        let safe = true;
+        for (const kid of kids) {
+          const inside = kid.hasAttribute('data-ft-session')
+            ? 1
+            : kid.querySelectorAll('[data-ft-session]').length;
+          if (inside > 1) { safe = false; break; }
+          if (inside === 1) holders += 1;
+        }
+        if (safe && holders >= 2) return { container: parent, slot: node };
+        node = parent;
       }
-      const grand = parent.parentElement;
-      if (grand === null) return null;
-      return { container: grand, slot: parent };
+      return null;
     }
 
     function applyOrder() {
@@ -242,6 +260,14 @@ window.__ModuleLoader__.load({
           entry.rank = index.has(entry.slot) ? index.get(entry.slot) : 9999;
         }
         const byId = new Map(entries.map(function (e) { return [e.id, e]; }));
+        // A parent that exists in the sidebar but is not part of this container
+        // means we cannot order the group reliably: keep the native order
+        // instead of pushing children above their parent.
+        let incomplete = false;
+        for (const entry of entries) {
+          if (entry.parent && !byId.has(entry.parent) && rows.has(entry.parent)) incomplete = true;
+        }
+        if (incomplete) continue;
         const childrenOf = new Map();
         const roots = [];
         for (const entry of entries) {
@@ -284,13 +310,31 @@ window.__ModuleLoader__.load({
             for (let i = 0; i < ordered.length; i += 1) ordered[i].slot.style.order = String(i);
           }
         } else {
-          // SAFETY (2026-11-03): never move React-managed slot nodes with
-          // insertBefore. React owns this list; moving its children causes
-          // "NotFoundError" DOMExceptions inside the sidebar slot callbacks
-          // ("slot entry crashed in sidebar.session.row.leading") and can take
-          // the whole client down. Non-flex containers keep their native order;
-          // tree grouping is only applied via CSS `order` on flex containers.
-          continue;
+          // Version-independent ordering: DSH lists are plain block containers
+          // (newer builds dropped the flex layout), so `order` alone does
+          // nothing. Convert the container to a flex column ONCE, pin every
+          // non-session child to its native slot, and give the session rows the
+          // tree order inside the same slot positions. No node is ever moved,
+          // so React never sees a foreign insertion.
+          let kids = [];
+          try { kids = Array.from(container.children); } catch (err) { continue; }
+          const want = new Set(ordered.map(function (e) { return e.slot; }));
+          const positions = [];
+          for (let i = 0; i < kids.length; i += 1) if (want.has(kids[i])) positions.push(i);
+          if (positions.length !== ordered.length) continue;
+          if (positions.length < 2) continue;
+          container.style.display = 'flex';
+          container.style.flexDirection = 'column';
+          for (let i = 0; i < kids.length; i += 1) {
+            if (!want.has(kids[i])) kids[i].style.order = String(i);
+          }
+          let changed = false;
+          for (let i = 0; i < ordered.length; i += 1) {
+            const slot = ordered[i].slot;
+            const value = String(positions[i]);
+            if (slot.style.order !== value) { slot.style.order = value; changed = true; }
+          }
+          if (changed) reorderCount += 1;
         }
       }
       lastApply = Date.now();
@@ -682,6 +726,36 @@ window.__ModuleLoader__.load({
           hot: row.getAttribute('data-ft-hot') === '1',
           hidden: row.hasAttribute('data-ft-hidden'),
           toggle: toggles.has(row),
+          grp: (function () {
+            const info = slotOf(row);
+            if (!info) return null;
+            if (!info.container.__ftGrp) {
+              info.container.__ftGrp = (typeof gid === 'number' ? gid += 1 : (gid = 1));
+            }
+            return info.container.__ftGrp;
+          })(),
+          y: Math.round(row.getBoundingClientRect().top),
+          ord: (function () {
+            const info = slotOf(row);
+            return info ? (info.slot.style.order || null) : null;
+          })(),
+          sib: (function () {
+            const info = slotOf(row);
+            if (!info || !info.container) return null;
+            const kids = Array.from(info.container.children);
+            const i = kids.indexOf(info.slot);
+            return { i, n: kids.length, first: kids[0] ? (kids[0].className || '').slice(0, 24) : '' };
+          })(),
+          flow: (function () {
+            const info = slotOf(row);
+            if (!info || !info.container) return null;
+            try { return getComputedStyle(info.container).display; } catch (e) { return null; }
+          })(),
+          parent: (function () {
+            const info = lineage.byId.get(id);
+            const pr = (lineage.parents.get(id)) || null;
+            return pr ? pr.slice(8, 16) : null;
+          })(),
           centre: alignToggle(row),
           titleText: (function () {
             const el = titleEl(row);
