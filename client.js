@@ -9,7 +9,7 @@
  *  - report: measurements POSTed to /fork-tree/report.
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-session-fork-tree',
+  id: '@local/fork-tree',
   factory(require) {
     const React = require('react');
     const STYLE_ID = 'fork-tree-style';
@@ -284,27 +284,13 @@ window.__ModuleLoader__.load({
             for (let i = 0; i < ordered.length; i += 1) ordered[i].slot.style.order = String(i);
           }
         } else {
-          const wanted = ordered.map(function (e) { return e.slot; });
-          const current = Array.from(container.children).filter(function (el) {
-            return wanted.indexOf(el) !== -1;
-          });
-          let already = current.length === wanted.length;
-          for (let i = 0; already && i < wanted.length; i += 1) {
-            if (current[i] !== wanted[i]) already = false;
-          }
-          if (already) continue;
-          reorderCount += 1;
-          let cursor = ordered[0].slot;
-          for (let i = 1; i < ordered.length; i += 1) {
-            const slot = ordered[i].slot;
-            if (slot === cursor) continue;
-            try {
-              container.insertBefore(slot, cursor.nextSibling);
-            } catch (err) {
-              break;
-            }
-            cursor = slot;
-          }
+          // SAFETY (2026-11-03): never move React-managed slot nodes with
+          // insertBefore. React owns this list; moving its children causes
+          // "NotFoundError" DOMExceptions inside the sidebar slot callbacks
+          // ("slot entry crashed in sidebar.session.row.leading") and can take
+          // the whole client down. Non-flex containers keep their native order;
+          // tree grouping is only applied via CSS `order` on flex containers.
+          continue;
         }
       }
       lastApply = Date.now();
@@ -572,9 +558,19 @@ window.__ModuleLoader__.load({
       }
       const title = titleEl(row);
       if (title !== null) {
-        if (button.parentElement !== title) title.appendChild(button);
+        if (button.parentElement !== title) {
+          try {
+            title.appendChild(button);
+          } catch (err) {
+            /* React may own this subtree; skip the marker instead of crashing */
+          }
+        }
       } else if (button.parentElement === null) {
-        row.appendChild(button);
+        try {
+          row.appendChild(button);
+        } catch (err) {
+          /* ignore */
+        }
       }
       try {
         if (getComputedStyle(row).position === 'static') row.style.position = 'relative';
@@ -623,6 +619,19 @@ window.__ModuleLoader__.load({
     }
 
     function decorate(el, sessionId, title) {
+      try {
+        decorateUnsafe(el, sessionId, title);
+      } catch (err) {
+        if (!decorateFailed) {
+          decorateFailed = true;
+          console.warn('[fork-tree] decorate failed, degraded to safe mode', err);
+        }
+      }
+    }
+
+    let decorateFailed = false;
+
+    function decorateUnsafe(el, sessionId, title) {
       if (typeof sessionId !== 'string') return;
       const row = rowOf(el, title);
       if (row === null) return;
@@ -735,10 +744,14 @@ window.__ModuleLoader__.load({
       const title = typeof props.displayTitle === 'string' ? props.displayTitle : '';
       const ref = React.useRef(null);
       React.useEffect(function () {
-        const el = ref.current;
-        if (el === null || typeof sessionId !== 'string') return;
-        if (lineage.at === 0) load().then(function () { decorate(el, sessionId, title); });
-        else decorate(el, sessionId, title);
+        try {
+          const el = ref.current;
+          if (el === null || typeof sessionId !== 'string') return;
+          if (lineage.at === 0) load().then(function () { decorate(el, sessionId, title); });
+          else decorate(el, sessionId, title);
+        } catch (err) {
+          /* never let a slot callback throw: React would unmount the row */
+        }
       });
       return React.createElement('span', { ref, className: 'ft-cell', 'data-ft-id': sessionId });
     }
