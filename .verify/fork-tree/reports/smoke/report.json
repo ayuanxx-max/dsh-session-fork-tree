@@ -1,0 +1,107 @@
+{
+  "scenario": "@local/fork-tree-smoke",
+  "url": "http://127.0.0.1:64477/.verify/fork-tree/verify/harness.html",
+  "engine": "cdp",
+  "ok": true,
+  "checks": [
+    {
+      "ok": true,
+      "detail": {
+        "loaded": [
+          "@local/fork-tree"
+        ],
+        "requires": [
+          "react"
+        ],
+        "errors": []
+      },
+      "name": "loaded"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "errors": [],
+        "warns": [
+          "[fork-tree] style fetch failed Error: HTTP 404",
+          "[fork-tree] lineage fetch failed: Error: HTTP 404"
+        ]
+      },
+      "name": "no-errors"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "want": [
+          "fork-tree-style"
+        ],
+        "found": [
+          "fork-tree-style"
+        ],
+        "requires": [
+          "react"
+        ]
+      },
+      "name": "style-installed",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "want": [
+          "__ftReport"
+        ],
+        "found": [
+          "__ftReport"
+        ]
+      },
+      "name": "globals",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "slots": [
+          {
+            "kind": "inject",
+            "name": "sidebar.session.row.leading"
+          },
+          {
+            "kind": "register",
+            "name": "sidebar.session.row.leading",
+            "id": "fork-tree-depth"
+          },
+          {
+            "kind": "inject",
+            "name": "sidebar.workspaces.session.row.action"
+          },
+          {
+            "kind": "register",
+            "name": "sidebar.workspaces.session.row.action",
+            "id": "fork-tree-depth"
+          }
+        ]
+      },
+      "name": "slots-registered",
+      "soft": true
+    }
+  ],
+  "metrics": null,
+  "thresholds": null,
+  "console": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (File not found)"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (File not found)"
+    }
+  ],
+  "pageErrors": [],
+  "failedRequests": [],
+  "title": "@local/fork-tree \u00b7 dev harness (generated)",
+  "harness": "loaded= errors=0 warn=0 err=0",
+  "softFailures": [],
+  "budgetViolations": [],
+  "durationMs": 1029
+}

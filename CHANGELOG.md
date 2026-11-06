@@ -1,5 +1,14 @@
 # Changelog · 更新记录
 
+## 0.9.31 — 2026-11-06
+
+- **恢复行排序为默认开启**：0.9.30 把它关掉后，子会话只保留缩进而不再回到父会话下方，看起来就是"父子关系全错"。排序是功能本体，必须开；`window.__DSH_FORK_TREE_ORDER__ = false` 可关闭。
+- **修复菜单/交互延迟**：`decorate` 原来每次 React 渲染都对**所有行**做一遍 `refreshToggles`（18 行时 O(n²)），并每帧用 `Range.getBoundingClientRect()` 重新测量标题。现在：
+  - 每行按 `depth|行宽|标题` 记签名，状态没变直接返回；
+  - `refreshToggles()` 从单行装饰路径移除，只在 lineage 刷新时统一跑；
+  - 新会话触发的 lineage 刷新改为 120ms 去抖（原来每行各发一次请求）。
+- Ordering is back on by default (children sit under their parent); per-row decoration is memoized so hover/menu interactions no longer re-measure every row.
+
 ## 0.9.30 — 2026-11-06
 
 - **默认不再重写行的排列顺序**（`order`）。DSH 0.2.2 自己按 lineage 排、并且在你点开会话时把它重新排序到前面；插件再写一次 `order` 会和原生排序打架，正好表现为「点一下，行上下跳两下，然后会话跑到视野外/像消失了」。缩进、连线、展开按钮都不依赖这次重排。

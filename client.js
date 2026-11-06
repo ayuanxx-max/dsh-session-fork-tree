@@ -67,6 +67,7 @@ window.__ModuleLoader__.load({
       return apiBase + path;
     }
     let orderTimer = 0;
+    let loadTimer = 0;
     let reorderCount = 0;
     let gid = 0;
     let lastApply = 0;
@@ -126,6 +127,27 @@ window.__ModuleLoader__.load({
       } finally {
         loading = false;
       }
+    }
+
+    /**
+     * Debounced lineage refresh for rows that are not in the snapshot yet (a
+     * brand-new fork). Several rows mount at once, so one refresh must serve
+     * all of them instead of one fetch per row.
+     */
+    function scheduleLoad() {
+      clearTimeout(loadTimer);
+      loadTimer = setTimeout(function () {
+        load().then(function () {
+          // Depths changed with the new lineage: invalidate every row's
+          // decoration signature and re-apply the geometry once.
+          for (const [, row] of rows) {
+            row.__ftSig = '';
+            applyLayout(row);
+          }
+          applyVisibility();
+          applyOrder();
+        });
+      }, 120);
     }
 
     /** Parent that is actually on screen; a hidden (archived) parent counts as absent. */
@@ -284,13 +306,11 @@ window.__ModuleLoader__.load({
     }
 
     function applyOrder() {
-      // Row ordering is OFF by default. DSH 0.2.2 already sorts a Workspace's
-      // sessions by lineage and re-sorts the opened session on click; any extra
-      // `order` rewrite races that sort and moves rows out from under the
-      // pointer (the reported "rows jump twice, then the session is gone").
-      // Indentation, rails and the expander do not need this reorder.
-      // Opt back in with window.__DSH_FORK_TREE_ORDER__ = true.
-      if (typeof window === 'undefined' || window.__DSH_FORK_TREE_ORDER__ !== true) {
+      // Ordering is the point of this plugin: DSH 0.2.2 only nests
+      // `origin === 'subagent'` forks, so a user fork otherwise keeps its list
+      // position and a child's indent points at a parent far away. Disable with
+      // window.__DSH_FORK_TREE_ORDER__ = false.
+      if (typeof window !== 'undefined' && window.__DSH_FORK_TREE_ORDER__ === false) {
         lastApply = Date.now();
         return;
       }
@@ -809,27 +829,35 @@ window.__ModuleLoader__.load({
       installObserver();
       row.setAttribute('data-ft-session', sessionId);
       wireHover(row, sessionId);
+      // One decoration per row state. React re-renders a row for hover, status
+      // and time updates; recomputing geometry and re-measuring text ranges on
+      // every one of those made the sidebar (and its menus) feel laggy.
+      const depth = depthOf(sessionId);
+      let width = 0;
+      try {
+        width = Math.round(row.getBoundingClientRect().width);
+      } catch (err) {
+        width = 0;
+      }
+      const signature = depth + '|' + width + '|' + String(title || '');
+      if (row.__ftSig === signature) {
+        if (!lineage.parents.has(sessionId)) scheduleLoad();
+        return;
+      }
+      row.__ftSig = signature;
       const layout = applyLayout(row);
       // The leading seat hosts the working spinner / waiting clock; on a child
       // row the rail runs through that 16px cell, so shift the seat one
       // character left to clear the connector. Resolved from the row, because
       // which slot hosts us depends on the row's state.
-      applySeatOffset(row, depthOf(sessionId));
+      applySeatOffset(row, depth);
       ensureToggle(row, sessionId);
-      refreshToggles();
       applyVisibility();
       clearTimeout(orderTimer);
       orderTimer = setTimeout(applyOrder, 60);
-      if (!lineage.parents.has(sessionId)) {
-        // A brand-new session (e.g. a fresh fork) is not in the lineage yet:
-        // refresh it now instead of waiting for the next poll.
-        load().then(function () {
-          applyLayout(row);
-          applyOrder();
-        });
-      }
+      if (!lineage.parents.has(sessionId)) scheduleLoad();
       if (diagnostics.length < 40) {
-        diagnostics.push({ id: sessionId.slice(0, 16), depth: depthOf(sessionId), layout });
+        diagnostics.push({ id: sessionId.slice(0, 16), depth, layout });
       }
       if (Date.now() - lastReport > 5000) sendReport();
     }

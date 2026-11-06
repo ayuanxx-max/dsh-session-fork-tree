@@ -1,0 +1,158 @@
+{
+  "scenario": "@local/fork-tree-smoke",
+  "url": "http://127.0.0.1:64527/verify/harness.html",
+  "engine": "cdp",
+  "ok": true,
+  "checks": [
+    {
+      "ok": true,
+      "detail": {
+        "loaded": [
+          "dsh-session-fork-tree"
+        ],
+        "requires": [
+          "react"
+        ],
+        "errors": []
+      },
+      "name": "loaded"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "errors": [],
+        "warns": []
+      },
+      "name": "no-errors"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "want": [
+          "fork-tree-style"
+        ],
+        "found": [
+          "fork-tree-style"
+        ],
+        "requires": [
+          "react"
+        ]
+      },
+      "name": "style-installed",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "want": [
+          "__ftReport"
+        ],
+        "found": [
+          "__ftReport"
+        ]
+      },
+      "name": "globals",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "slots": [
+          {
+            "kind": "inject",
+            "name": "sidebar.session.row.leading"
+          },
+          {
+            "kind": "register",
+            "name": "sidebar.session.row.leading",
+            "id": "fork-tree-depth"
+          },
+          {
+            "kind": "inject",
+            "name": "sidebar.workspaces.session.row.action"
+          },
+          {
+            "kind": "register",
+            "name": "sidebar.workspaces.session.row.action",
+            "id": "fork-tree-depth"
+          }
+        ]
+      },
+      "name": "slots-registered",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "at": 1793955486430,
+        "rows": 0,
+        "fetches": 3
+      },
+      "name": "lineage-consumed"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "styled": true
+      },
+      "name": "style-loaded",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "type": "function"
+      },
+      "name": "report-api"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "got": [
+          "sidebar.session.row.leading#",
+          "sidebar.session.row.leading#fork-tree-depth",
+          "sidebar.workspaces.session.row.action#",
+          "sidebar.workspaces.session.row.action#fork-tree-depth"
+        ]
+      },
+      "name": "slots-contract"
+    },
+    {
+      "ok": true,
+      "detail": {
+        "budget": 250,
+        "worst": 0,
+        "count": 0,
+        "samples": []
+      },
+      "name": "no-long-task",
+      "soft": true
+    },
+    {
+      "ok": true,
+      "detail": {
+        "before": {
+          "slots": 4,
+          "listeners": 1
+        },
+        "after": {
+          "slots": 4,
+          "listeners": 1
+        }
+      },
+      "name": "reapply-safe",
+      "soft": true
+    }
+  ],
+  "metrics": null,
+  "thresholds": null,
+  "console": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "title": "@local/fork-tree \u00b7 dev harness (generated)",
+  "harness": "loaded= errors=0 warn=0 err=0",
+  "softFailures": [],
+  "degraded": false,
+  "budgetViolations": [],
+  "durationMs": 5436
+}

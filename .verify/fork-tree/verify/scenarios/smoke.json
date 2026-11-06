@@ -1,0 +1,34 @@
+{
+  "name": "@local/fork-tree-smoke",
+  "steps": [
+    {
+      "js": "1",
+      "waitMs": 350
+    }
+  ],
+  "checks": [
+    {
+      "name": "loaded",
+      "js": "window.__check.loaded()"
+    },
+    {
+      "name": "no-errors",
+      "js": "window.__check.noErrors()"
+    },
+    {
+      "name": "style-installed",
+      "js": "window.__check.styleInstalled()",
+      "soft": true
+    },
+    {
+      "name": "globals",
+      "js": "window.__check.globals()",
+      "soft": true
+    },
+    {
+      "name": "slots-registered",
+      "js": "window.__check.slots()",
+      "soft": true
+    }
+  ]
+}

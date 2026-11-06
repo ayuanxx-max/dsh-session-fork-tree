@@ -1,0 +1,69 @@
+{
+  "name": "@local/fork-tree-smoke",
+  "steps": [
+    {
+      "js": "1",
+      "waitMs": 350
+    },
+    {
+      "js": "window.dispatchEvent(new Event('resize'))",
+      "waitMs": 500
+    },
+    {
+      "js": "for(var i=0;i<200;i++){window.dispatchEvent(new Event('resize'))} 1",
+      "waitMs": 700
+    }
+  ],
+  "checks": [
+    {
+      "name": "loaded",
+      "js": "window.__check.loaded()"
+    },
+    {
+      "name": "no-errors",
+      "js": "window.__check.noErrors()"
+    },
+    {
+      "name": "style-installed",
+      "js": "window.__check.styleInstalled()",
+      "soft": true
+    },
+    {
+      "name": "globals",
+      "js": "window.__check.globals()",
+      "soft": true
+    },
+    {
+      "name": "slots-registered",
+      "js": "window.__check.slots()",
+      "soft": true
+    },
+    {
+      "name": "lineage-consumed",
+      "js": "(function(){var r=window.__ftReport&&window.__ftReport();return __r(!!r&&r.at>0&&r.rows>=0,{at:r&&r.at,rows:r&&r.rows,fetches:(window.__ftFetches||[]).length});})()"
+    },
+    {
+      "name": "style-loaded",
+      "js": "(function(){var r=window.__ftReport&&window.__ftReport();return __r(!!r&&r.styled===true,{styled:r&&r.styled});})()",
+      "soft": true
+    },
+    {
+      "name": "report-api",
+      "js": "(__r(typeof window.__ftReport==='function',{type:typeof window.__ftReport}))"
+    },
+    {
+      "name": "slots-contract",
+      "js": "(function(){var got=(window.__hSlots||[]).map(function(s){return String(s.name||'')+'#'+String(s.id||'')});return __r(got.indexOf('sidebar.session.row.leading#fork-tree-depth')>=0,{got:got});})()"
+    },
+    {
+      "name": "no-long-task",
+      "js": "window.__check.noLongTask()",
+      "soft": true
+    },
+    {
+      "name": "reapply-safe",
+      "js": "window.__check.reapply()",
+      "soft": true
+    }
+  ]
+}

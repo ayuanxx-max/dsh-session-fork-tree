@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>@local/fork-tree · dev harness (generated)</title>
+<style>
+  html,body{margin:0;height:100%;font:13px/1.5 system-ui,sans-serif}
+  #bar{padding:6px 10px;border-bottom:1px solid #e5e5e5;font-size:12px;color:#555;white-space:pre-wrap}
+  #shell{padding:12px}
+  [data-slot]{min-height:40px;border:1px dashed #ddd;margin:6px 0;padding:4px}
+</style>
+</head>
+<body>
+<div id="bar">boot…</div>
+<div id="shell"><div data-slot="sidebar.session.row.leading"></div></div>
+<script>
+/* ---- problems this harness can see ---- */
+window.__hErrors = [];
+window.__hLong = [];
+window.__hListeners = [];
+(function () {
+  var add = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (type, fn, opt) {
+    try {
+      var t = this === window ? 'window' : (this === document ? 'document' : (this.tagName || 'node'));
+      window.__hListeners.push({ type: String(type), target: String(t) });
+    } catch (e) {}
+    return add.call(this, type, fn, opt);
+  };
+  try {
+    new PerformanceObserver(function (list) {
+      list.getEntries().forEach(function (e) { window.__hLong.push(Math.round(e.duration)); });
+    }).observe({ entryTypes: ['longtask'] });
+  } catch (e) {}
+})();
+window.__cvErr = [];
+window.__cvWarn = [];
+(function () {
+  var e = console.error, w = console.warn;
+  console.error = function () { try { window.__cvErr.push(Array.prototype.map.call(arguments, String).join(' ').slice(0, 300)); } catch (x) {} return e.apply(null, arguments); };
+  console.warn = function () { try { window.__cvWarn.push(Array.prototype.map.call(arguments, String).join(' ').slice(0, 300)); } catch (x) {} return w.apply(null, arguments); };
+})();
+
+/* ---- fake uiConversation so 2026-11-04 style guards can install ---- */
+function fakeConversation() {
+  var defs = new Map();
+  ['system-message', 'request-prompt'].forEach(function (kind) {
+    defs.set(kind, { kind: kind, buildViewNode: function (context) {
+      var map = context && context.current;
+      if (!map || typeof map.get !== 'function' || !map.get('chat')) return null;
+      return null;
+    } });
+  });
+  return { events: { definitions: defs, subscribe: function () { return function () {}; } } };
+}
+var __conv = fakeConversation();
+var __ctx = {
+  uiConversation: __conv,
+  get: function (k) { return k === 'uiConversation' ? __conv : undefined; },
+  inject: function (deps, cb) { try { cb(__ctx); } catch (err) { window.__hErrors.push('inject: ' + err); } return function () {}; },
+  on: function () { return function () {}; },
+  effect: function () { return function () {}; },
+  emit: function () { return false; },
+  logger: { info: function () {}, warn: function () {}, error: function () {}, debug: function () {} }
+};
+window.__mockCtx = __ctx;
+
+/* ---- slot host shim: UI plugins register here (ctx.slots.inject/register) ---- */
+window.__hSlots = [];
+__ctx.slots = {
+  inject: function (name, cb) {
+    window.__hSlots.push({ kind: 'inject', name: String(name) });
+    try { cb(); } catch (err) { window.__hErrors.push('slots.inject cb: ' + err); }
+    return function () {};
+  },
+  register: function (decl) {
+    window.__hSlots.push({ kind: 'register', name: String((decl && decl.name) || '?'), id: (decl && decl.id) || null });
+    return function () {};
+  },
+  declare: function (decl) {
+    window.__hSlots.push({ kind: 'declare', name: String((decl && decl.name) || '?') });
+    return function () {};
+  },
+  list: function () { return window.__hSlots.slice(); },
+  get: function () { return undefined; }
+};
+
+/* ---- module shim: the real loader passes require(); several plugins ask for react ---- */
+window.__hRequires = [];
+var miniReact = {
+  createElement: function (type, props) { return { type: type, props: props || {}, children: [].slice.call(arguments, 2) }; },
+  Fragment: 'Fragment',
+  useState: function (v) { return [typeof v === 'function' ? v() : v, function () {}]; },
+  useReducer: function (r, i) { return [i, function () {}]; },
+  useEffect: function () {}, useLayoutEffect: function () {},
+  useMemo: function (f) { return f(); }, useCallback: function (f) { return f; },
+  useRef: function (v) { return { current: v }; },
+  createContext: function (v) { return { Provider: function (p) { return p.children; }, Consumer: function () { return null; }, _currentValue: v }; },
+  memo: function (c) { return c; }, forwardRef: function (c) { return c; },
+  createRef: function () { return { current: null }; },
+  Component: function () {}, PureComponent: function () {}
+};
+function tolerantModule() {
+  var noop = function () { return undefined; };
+  return new Proxy(noop, { get: function (t, k) { if (k === 'then') return undefined; return noop; } });
+}
+function requireShim(id) {
+  try { window.__hRequires.push(String(id)); } catch (e) {}
+  if (id === 'react') return miniReact;
+  if (id === 'react-dom' || id === 'react-dom/client') {
+    return { createRoot: function () { return { render: function () {}, unmount: function () {} }; },
+             render: function () {}, hydrate: function () {} };
+  }
+  return tolerantModule();
+}
+window.__ModuleLoader__ = {
+  loaded: [],
+  load: function (entry) {
+    if (!entry || typeof entry.factory !== 'function') { window.__hErrors.push('bad entry'); return; }
+    this.loaded.push(entry.id);
+    try {
+      var mod = entry.factory(requireShim);
+      window.__hMod = mod;
+      if (mod && typeof mod.apply === 'function') mod.apply(__ctx);
+      else if (mod && typeof mod.activate === 'function') mod.activate(__ctx);
+    } catch (err) {
+      window.__hErrors.push(String((err && err.stack) || err).slice(0, 500));
+    }
+  }
+};
+
+/* ---- generic checks ---- */
+window.__r = function (ok, detail) { return { ok: !!ok, detail: detail || {} }; };
+window.__check = {
+  loaded: function () {
+    var l = window.__ModuleLoader__.loaded;
+    return { ok: l.length > 0, detail: { loaded: l, requires: window.__hRequires, errors: window.__hErrors } };
+  },
+  noErrors: function () {
+    var bad = (window.__hErrors || []).concat(window.__cvErr || []);
+    return { ok: bad.length === 0, detail: { errors: bad.slice(0, 5), warns: (window.__cvWarn || []).slice(0, 5) } };
+  },
+  styleInstalled: function (ids) {
+    var want = ["fork-tree-style"];
+    var found = want.filter(function (id) { return !!document.getElementById(id); });
+    return { ok: want.length === 0 || found.length > 0, detail: { want: want, found: found, requires: window.__hRequires } };
+  },
+  globals: function () {
+    var want = ["__ftReport"];
+    var found = want.filter(function (g) { return window[g] !== undefined; });
+    return { ok: want.length === 0 || found.length > 0, detail: { want: want, found: found } };
+  },
+  slots: function () {
+    return { ok: window.__hSlots.length > 0, detail: { slots: window.__hSlots.slice(0, 8) } };
+  },
+  slotsContract: function () {
+    var want = [];
+    var got = window.__hSlots.map(function (s) { return String(s.name || '') + (s.id ? '#' + s.id : ''); });
+    var missing = want.filter(function (w) { return !got.some(function (g) { return g === w || g.indexOf(w + '#') === 0; }); });
+    return { ok: want.length === 0 || missing.length === 0, detail: { want: want, got: got.slice(0, 10), missing: missing } };
+  },
+  listeners: function () {
+    var want = [];
+    var got = [];
+    window.__hListeners.forEach(function (l) { if (got.indexOf(l.type) < 0) got.push(l.type); });
+    var missing = want.filter(function (w) { return got.indexOf(w) < 0; });
+    return { ok: want.length === 0 || missing.length === 0, detail: { want: want, got: got, missing: missing, count: window.__hListeners.length } };
+  },
+  noLongTask: function () {
+    var budget = 250;
+    var worst = window.__hLong.length ? Math.max.apply(null, window.__hLong) : 0;
+    return { ok: worst <= budget, detail: { budget: budget, worst: worst, count: window.__hLong.length, samples: window.__hLong.slice(0, 6) } };
+  },
+  reapply: function () {
+    var before = { slots: window.__hSlots.length, listeners: window.__hListeners.length };
+    try { if (window.__hMod && typeof window.__hMod.apply === 'function') window.__hMod.apply(__ctx); }
+    catch (err) { window.__hErrors.push('reapply: ' + err); }
+    var after = { slots: window.__hSlots.length, listeners: window.__hListeners.length };
+    return { ok: (window.__hErrors || []).length === 0, detail: { before: before, after: after } };
+  },
+  idleStable: function () {
+    var errs = (window.__hErrors || []).length;
+    return { ok: errs === 0, detail: { errors: errs, warns: (window.__cvWarn || []).length } };
+  }
+};
+(function tick(tries) {
+  if (document.getElementById('bar').textContent === 'boot…') {
+    document.getElementById('bar').textContent = 'loaded=' + window.__ModuleLoader__.loaded.join(',') +
+      ' errors=' + window.__hErrors.length + ' warn=' + window.__cvWarn.length +
+      ' err=' + window.__cvErr.length;
+  }
+  if (tries < 40) setTimeout(function () { tick(tries + 1); }, 50);
+}(0));
+</script>
+<script>window.__ftFetches=[];window.fetch=function(u){var s=String((u&&u.url)||u);window.__ftFetches.push(s);if(s.indexOf('lineage.json')>=0){return Promise.resolve(new Response(JSON.stringify({items:[{id:'s1',parent:null,title:'root'},{id:'s2',parent:'s1'},{id:'s3',parent:'s2'},{id:'s4',parent:null},{id:'s5',parent:'s4'},{id:'s6',parent:'s5',displayed:false}]}),{status:200,headers:{'content-type':'application/json'}}));}if(s.indexOf('style.css')>=0){return Promise.resolve(new Response('.ft-cell{color:red}',{status:200,headers:{'content-type':'text/css'}}));}return Promise.resolve(new Response('{}',{status:200}));};</script>
+<script src="../client.js"></script>
+</body>
+</html>
