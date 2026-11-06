@@ -163,6 +163,18 @@ window.__ModuleLoader__.load({
     }
 
     function rowOf(el, title) {
+      // DSH 0.2.2 tags every tree row with `data-row-key="session:<id>"`.
+      // Prefer that over walking the tree and guessing by class name: the class
+      // names are CSS-module hashes and the wrapper depth changed between
+      // releases (the sidebar rows now sit inside a Workspace group section).
+      if (el !== null && typeof el.closest === 'function') {
+        try {
+          const keyed = el.closest('[data-row-key^="session:"]');
+          if (keyed !== null) return keyed;
+        } catch (err) {
+          /* fall through to the measured climb */
+        }
+      }
       if (title) {
         let node = el;
         let best = null;
@@ -445,16 +457,55 @@ window.__ModuleLoader__.load({
       };
     }
 
-    let baseTitleX = NaN;
+    /**
+     * Per-row geometry baseline, measured ONCE before this plugin writes any
+     * padding of its own.
+     *
+     * A single global "title x" cannot work on DSH 0.2.2: every Workspace group
+     * carries its own `--dsh-workspace-indent`, and the row's own indent comes
+     * from `padding-inline-start` + `border-inline-start`, so the title x
+     * differs per group. Worse, a row inside a collapsed branch reports a
+     * zero rect, which used to poison the cached base — that is what pushed a
+     * grandchild row's title left of its parent and its rail to -8px.
+     *
+     * Everything below is row-local and derived from computed style, so it is
+     * correct even while the row is hidden and never depends on another row.
+     */
+    const baseMetrics = new WeakMap();
 
-    /** Title x of a depth-0 row, measured once per pass when available. */
-    function titleLeftOfRoot() {
-      for (const [id, row] of rows) {
-        if (depthOf(id) !== 0) continue;
-        const x = titleLeft(row);
-        if (x !== null) return x;
+    function metricsOf(row) {
+      const cached = baseMetrics.get(row);
+      if (cached !== undefined) return cached;
+      let border = 3;
+      let pad = 9;
+      try {
+        const cs = getComputedStyle(row);
+        const b = parseFloat(cs.borderInlineStartWidth);
+        const p = parseFloat(cs.paddingInlineStart);
+        if (Number.isFinite(b)) border = b;
+        if (Number.isFinite(p)) pad = p;
+      } catch (err) {
+        /* keep the defaults */
       }
-      return NaN;
+      const seat = leadingSeat(row);
+      let slotW = 16;
+      if (seat !== null) {
+        const w = seat.getBoundingClientRect().width;
+        if (w > 0) slotW = w;
+      }
+      const title = titleEl(row);
+      let gap = 6;
+      if (title !== null) {
+        try {
+          const m = parseFloat(getComputedStyle(title).marginInlineStart);
+          if (Number.isFinite(m)) gap = m;
+        } catch (err) {
+          /* keep the default */
+        }
+      }
+      const value = { pad, titleX: border + pad + slotW + gap };
+      baseMetrics.set(row, value);
+      return value;
     }
 
     function applyLayout(row) {
@@ -468,73 +519,36 @@ window.__ModuleLoader__.load({
         row.style.removeProperty('--ft-d');
         row.style.removeProperty('--ft-rail-x');
         row.style.removeProperty('--ft-elbow-w');
+        row.style.removeProperty('--ft-shift');
         return null;
       }
+      // The baseline must be read BEFORE `data-ft-depth` exists: the stylesheet
+      // gives that attribute `padding-left: var(--ft-pad)`, which would zero
+      // (or overwrite) the very padding this measurement needs.
+      const metrics = metricsOf(row);
       row.setAttribute('data-ft-depth', String(depth));
       row.style.setProperty('--ft-d', String(depth));
 
       // Exact 16px steps, capped at 5 levels so a deep tree cannot eat the
-      // sidebar width. `naturalPad` is the un-shortened indent used for
-      // measuring; the final pad subtracts the shortened elbow length below.
+      // sidebar width. No measurement pass, no correction nudge: the row's
+      // natural indent is fixed, so pad → title position is linear and the
+      // same numbers hold whether the row is visible right now or not.
       const step = 16;
       const level = Math.min(depth, 5);
-      let naturalPad = null;
-      try {
-        if (!Number.isFinite(baseTitleX)) baseTitleX = titleLeftOfRoot();
-        if (Number.isFinite(baseTitleX)) {
-          const rowLeft = row.getBoundingClientRect().left;
-          naturalPad = Math.max(0, Math.round(baseTitleX + level * step - rowLeft));
-          row.style.setProperty('--ft-pad', naturalPad + 'px');
-          // one correction pass: the row's own padding/border can swallow part
-          // of the indent, so nudge until the title really sits at the target
-          const target = baseTitleX + level * step;
-          const measured = titleLeft(row);
-          if (measured !== null) {
-            const delta = target - measured;
-            if (Math.abs(delta) >= 1) {
-              naturalPad = Math.max(0, Math.round(naturalPad + delta));
-              row.style.setProperty('--ft-pad', naturalPad + 'px');
-            }
-          }
-        }
-      } catch (err) {
-        /* keep the CSS fallback */
-      }
-
-      if (row.getClientRects().length === 0) return null;
-      // measure at the natural indent, otherwise every pass would reuse the
-      // already-shifted title position and shrink the elbow again
-      row.style.removeProperty('--ft-shift');
-      const childX = titleLeft(row);
-      if (childX === null) return null;
-      // titleLeft() already returns a ROW-LOCAL offset, so translate the
-      // parent's title into this row's coordinate space with the row-left delta.
-      const parentRow = rows.get(ancestorsOf(id)[0]);
-      let railX = Math.round(childX - 8);
-      if (parentRow) {
-        const px = titleLeft(parentRow);
-        if (px !== null) {
-          const rowLeft = row.getBoundingClientRect().left;
-          const parentLeft = parentRow.getBoundingClientRect().left;
-          railX = Math.round(px + (parentLeft - rowLeft));
-        }
-      }
+      const railX = Math.round(metrics.titleX + step * (level - 1));
       // SPEC: openspec/changes/fix-fork-rail-geometry — the horizontal segment
       // is a fixed 10px at EVERY depth; the title absorbs the difference.
-      const naturalElbow = Math.max(4, Math.round(childX - railX - 2));
+      const naturalElbow = step - 2;
       const elbowW = Math.min(10, naturalElbow);
       const shift = naturalElbow - elbowW;
-      // ONE place decides both numbers: the elbow width and the matching title
-      // left-shift always travel together, so a later edit cannot keep one and
-      // drop the other.
-      if (naturalPad !== null) {
-        row.style.setProperty('--ft-pad', Math.max(0, naturalPad - shift) + 'px');
-      }
-      if (shift > 0) row.style.setProperty('--ft-shift', shift + 'px');
-      else row.style.removeProperty('--ft-shift');
+      row.style.setProperty(
+        '--ft-pad',
+        Math.max(0, Math.round(metrics.pad + step * level - shift)) + 'px'
+      );
+      row.style.removeProperty('--ft-shift');
       row.style.setProperty('--ft-rail-x', railX + 'px');
       row.style.setProperty('--ft-elbow-w', elbowW + 'px');
-      return { railX, elbowW, childX, shift, naturalPad };
+      return { railX, elbowW, titleX: metrics.titleX, pad: metrics.pad };
     }
 
     function setHot(sessionId, on) {

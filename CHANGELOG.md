@@ -2,6 +2,15 @@
 
 All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
 
+## 0.9.27 — 2026-11-06
+
+- 修复 DSH 0.2.2 升级后的缩进/连线错位：不再用“全局标题 x”（`baseTitleX`）和跨行测量推算缩进，改为**每行首次装饰时**从计算样式读取自身的 `border-inline-start` / `padding-inline-start` / 首列宽度 / 标题间距，一次性缓存。
+- 根因：新版侧边栏每个 Workspace 分组带自己的 `--dsh-workspace-indent`，各行基准 x 不同；且折叠分支里的行 rect 为 0，会把基准测量污染成 0/-8px，于是孙级行 `--ft-pad` 被算成 0、标题跑到父级左边、连线 `--ft-rail-x` 变成负数（跑出行外）。
+- 深度缩进现在完全是行内确定值：`pad = 该行原始 padding + 16×depth − 4`，`railX = 标题基准 x + 16×(depth−1)`，不再做二次测量修正，隐藏行展开后也直接正确。
+- 行定位优先用新版稳定的 `data-row-key="session:<id>"`，类名/层级变化不再影响识别。
+- 连线拐角从“10px 上限”改为行高 50%，正好落在标题中线（新版行固定 32px、单行标题）。
+- Fixes broken fork indentation/rails after the DSH 0.2.2 upgrade: per-row, style-derived baseline instead of a global measured `baseTitleX`; rows are found through `data-row-key`.
+
 ## 0.9.26 — 2026-11-03
 
 - 新增 `pinFooters()`：识别「收起/展开/显示更多」控件并钉到其含会话祖先的末尾（`order: 999999`，容器必要时转 flex column），确保「收起」永远在会话最底部。
