@@ -1,6 +1,10 @@
 # Changelog · 更新记录
 
-All notable changes to **DSH 会话分叉树排列 / DSH Session Fork Tree**.
+## 0.9.28 — 2026-11-06
+
+- 修复「点一下会话，标题就消失」：`+` 标记不再插进标题 `<span>`，改为挂在**行**上的绝对定位子元素。DSH 用标题的 `scrollWidth - clientWidth` 判断要不要跑跑马灯，标记插在标题里把这 21px 也算进溢出量，悬停/点击时 `placeTitle()` 会把标题滚出裁切框，看起来就是标题没了。
+- 位置仍按标题最后一个字的右缘计算（`--ft-plus-x/--ft-plus-y`），因此「贴在标题末尾」的观感不变，但不再影响标题自身的滚动度量，也不会被 React 重设标题文本时一起清掉。
+- Fixes the disappearing session title: the marker is no longer inside the title span (which DSH measures for its hover marquee), but an absolutely positioned child of the row.
 
 ## 0.9.27 — 2026-11-06
 

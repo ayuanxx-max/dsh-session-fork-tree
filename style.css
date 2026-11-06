@@ -98,26 +98,17 @@
 [data-ft-depth] [data-slot="sidebar.session.row.leading"] {
   transform: translateX(-1em);
 }
-/* Toggle placement: right edge of the title line, vertically centred, and
-   absolutely positioned so it can never shift the title text. */
+/* Marker placement: absolutely positioned in the ROW, never inside the title
+   span. DSH's `useTitleMarquee` decides whether to scroll a title by comparing
+   `scrollWidth` with `clientWidth`; an inline marker inside the title inflated
+   that range, so hovering/clicking made the text slide out of its clip box and
+   look like it had vanished. placeToggle() measures the last glyph of the title
+   and writes --ft-plus-x / --ft-plus-y in row coordinates. */
 .ft-toggle {
   position: absolute;
-  right: 6px;
-  top: 50%;
+  left: var(--ft-plus-x, 120px);
+  top: var(--ft-plus-y, 50%);
   transform: translateY(-50%);
   margin: 0;
   z-index: 3;
-}
-
-
-/* Marker rides the last character of the title. JS sets `position: relative`
-   plus a measured `top`, so no !important may lock those two properties. */
-.ft-toggle {
-  position: static;
-  transform: none;
-  z-index: auto;
-  margin: 0 0 0 7px;
-  vertical-align: middle;
-  align-self: center;
-  display: inline-flex;
 }

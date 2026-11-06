@@ -430,7 +430,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** Nudge the marker so its centre matches the title line's centre. */
+    /** Report how far the marker sits from the row's centre. */
     function alignToggle(row) {
       const btn = toggles.get(row);
       if (!btn || !btn.parentElement) return null;
@@ -438,22 +438,12 @@ window.__ModuleLoader__.load({
       if (rowBox.height === 0) return null;
       const box = btn.getBoundingClientRect();
       if (box.height === 0) return null;
-      const delta = (rowBox.top + rowBox.height / 2) - (box.top + box.height / 2);
-      const prev = typeof btn.__ftTop === 'number' ? btn.__ftTop : 0;
-      let next = prev + delta;
-      if (next > 12) next = 12;
-      if (next < -12) next = -12;
-      if (Math.abs(next - prev) >= 0.5) {
-        btn.__ftTop = next;
-        btn.style.position = 'relative';
-        btn.style.top = next + 'px';
-      }
+      const offset = (box.top + box.height / 2) - (rowBox.top + rowBox.height / 2);
       return {
         rowH: Math.round(rowBox.height),
         titleH: Math.round((btn.parentElement.getBoundingClientRect().height || 0)),
-        btnTop: Math.round(btn.getBoundingClientRect().top - rowBox.top),
-        offset: Math.round((btn.getBoundingClientRect().top + btn.getBoundingClientRect().height / 2) - (rowBox.top + rowBox.height / 2)),
-        applied: Math.round(next),
+        btnTop: Math.round(box.top - rowBox.top),
+        offset: Math.round(offset),
       };
     }
 
@@ -718,27 +708,21 @@ window.__ModuleLoader__.load({
         });
         toggles.set(row, button);
       }
-      // Kept inside the title element (so React never removes it), but laid out
-      // absolutely against the row: always at the right edge of the title line,
-      // vertically centred, and it can never shift the title text.
+      // The marker lives in the ROW, never inside the title span. DSH measures
+      // `scrollWidth - clientWidth` on the title to drive its hover marquee
+      // (`useTitleMarquee` → placeTitle): an extra inline child inflated that
+      // range, so on hover/click the title text was translated out of its clip
+      // box and looked like it had disappeared. An absolutely positioned child
+      // of the row leaves the title's own metrics untouched.
       const strays = row.querySelectorAll('.ft-toggle');
       for (const stray of strays) {
         if (stray !== button) stray.remove();
       }
-      const title = titleEl(row);
-      if (title !== null) {
-        if (button.parentElement !== title) {
-          try {
-            title.appendChild(button);
-          } catch (err) {
-            /* React may own this subtree; skip the marker instead of crashing */
-          }
-        }
-      } else if (button.parentElement === null) {
+      if (button.parentElement !== row) {
         try {
           row.appendChild(button);
         } catch (err) {
-          /* ignore */
+          /* React may own this subtree; skip the marker instead of crashing */
         }
       }
       try {
@@ -870,6 +854,11 @@ window.__ModuleLoader__.load({
           hot: row.getAttribute('data-ft-hot') === '1',
           hidden: row.hasAttribute('data-ft-hidden'),
           toggle: toggles.has(row),
+          toggleIn: (function () {
+            const button = toggles.get(row);
+            if (!button || !button.parentElement) return null;
+            return button.parentElement === row ? 'row' : String(button.parentElement.className || '').slice(0, 24);
+          })(),
           grp: (function () {
             const info = slotOf(row);
             if (!info) return null;
