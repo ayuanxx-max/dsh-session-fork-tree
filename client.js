@@ -284,6 +284,16 @@ window.__ModuleLoader__.load({
     }
 
     function applyOrder() {
+      // Row ordering is OFF by default. DSH 0.2.2 already sorts a Workspace's
+      // sessions by lineage and re-sorts the opened session on click; any extra
+      // `order` rewrite races that sort and moves rows out from under the
+      // pointer (the reported "rows jump twice, then the session is gone").
+      // Indentation, rails and the expander do not need this reorder.
+      // Opt back in with window.__DSH_FORK_TREE_ORDER__ = true.
+      if (typeof window === 'undefined' || window.__DSH_FORK_TREE_ORDER__ !== true) {
+        lastApply = Date.now();
+        return;
+      }
       const groups = new Map();
       for (const [id, row] of rows) {
         const info = slotOf(row);

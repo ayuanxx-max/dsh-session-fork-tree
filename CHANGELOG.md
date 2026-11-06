@@ -1,5 +1,11 @@
 # Changelog · 更新记录
 
+## 0.9.30 — 2026-11-06
+
+- **默认不再重写行的排列顺序**（`order`）。DSH 0.2.2 自己按 lineage 排、并且在你点开会话时把它重新排序到前面；插件再写一次 `order` 会和原生排序打架，正好表现为「点一下，行上下跳两下，然后会话跑到视野外/像消失了」。缩进、连线、展开按钮都不依赖这次重排。
+- 需要旧行为时在控制台执行 `window.__DSH_FORK_TREE_ORDER__ = true` 再刷新。
+- Row reordering is off by default: it raced DSH's own lineage sort and reset on click.
+
 ## 0.9.29 — 2026-11-06
 
 - **默认全展开**：把「expanded 集合」改成「collapsed 集合」。以前默认把分叉子会话全部 `display:none`，用户看到的就是"会话不见了"（本机实测启动时就有 4 条被隐藏）。现在默认全部可见，只有主动点 `−` 才折叠，`+` 表示可展开。
