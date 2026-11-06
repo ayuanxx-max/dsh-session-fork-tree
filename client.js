@@ -73,7 +73,10 @@ window.__ModuleLoader__.load({
 
     const rows = new Map();
     const toggles = new Map();
-    const expanded = new Set();
+    // Collapsed sets, not expanded sets: a fork is VISIBLE by default and only
+    // disappears when the user explicitly collapses its parent. Hiding new
+    // children by default made sessions look like they had vanished.
+    const collapsed = new Set();
     const wired = new WeakSet();
     const diagnostics = [];
 
@@ -396,7 +399,11 @@ window.__ModuleLoader__.load({
           let changed = false;
           for (let i = 0; i < ordered.length; i += 1) {
             const slot = ordered[i].slot;
-            const value = String(positions[i]);
+            // Same numbering as the flex branch (0..n-1). Writing the native
+            // child index here made the two branches disagree: the first pass
+            // used native positions, the next pass renumbered to 0..n-1 and
+            // every row jumped — the visible "rows shuffling twice" on click.
+            const value = String(i);
             if (slot.style.order !== value) { slot.style.order = value; changed = true; }
           }
           if (changed) reorderCount += 1;
@@ -578,7 +585,7 @@ window.__ModuleLoader__.load({
       let parent = parentOf(id);
       let guard = 0;
       while (parent && guard < 12) {
-        if (!expanded.has(parent)) return false;
+        if (collapsed.has(parent)) return false;
         parent = parentOf(parent);
         guard += 1;
       }
@@ -613,7 +620,7 @@ window.__ModuleLoader__.load({
       if (!row) return;
       const button = toggles.get(row);
       if (button === undefined) return;
-      const open = expanded.has(id);
+      const open = !collapsed.has(id);
       button.textContent = open ? '−' : '+';
       button.setAttribute('data-open', open ? '1' : '0');
       button.title = open ? '收起分叉' : '展开分叉';
@@ -681,8 +688,8 @@ window.__ModuleLoader__.load({
         const activate = function (event) {
           event.preventDefault();
           event.stopPropagation();
-          if (expanded.has(id)) expanded.delete(id);
-          else expanded.add(id);
+          if (collapsed.has(id)) collapsed.delete(id);
+          else collapsed.add(id);
           updateToggle(id);
           applyVisibility();
           applyOrder();
@@ -894,7 +901,7 @@ window.__ModuleLoader__.load({
             const el = titleEl(row);
             return el === null ? '' : String(el.textContent || '').replace('+', '').replace('\u2212', '').trim().slice(0, 24);
           })(),
-          open: expanded.has(id),
+          open: !collapsed.has(id),
           children: childCount(id),
           seat: (function () {
             const s = leadingSeat(row);

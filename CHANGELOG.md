@@ -1,5 +1,12 @@
 # Changelog · 更新记录
 
+## 0.9.29 — 2026-11-06
+
+- **默认全展开**：把「expanded 集合」改成「collapsed 集合」。以前默认把分叉子会话全部 `display:none`，用户看到的就是"会话不见了"（本机实测启动时就有 4 条被隐藏）。现在默认全部可见，只有主动点 `−` 才折叠，`+` 表示可展开。
+- 修掉重排抖动：block 分支原来按"原生子节点序号"写 `order`，而 flex 分支按 `0..n-1` 写；两次 pass 的编号规则不同 → 每次点击/重渲染都会整体重排一次，表现为"行上下串两下"。现在两个分支统一 `0..n-1`。
+- 只写有变化的 `order`，顺序已正确时不产生任何写入，配合 DSH 0.2.2 原生的 lineage 排序不会再来回跳。
+- Forks are visible by default; only an explicit collapse hides a subtree. Consistent order numbering stops the double reshuffle on click.
+
 ## 0.9.28 — 2026-11-06
 
 - 修复「点一下会话，标题就消失」：`+` 标记不再插进标题 `<span>`，改为挂在**行**上的绝对定位子元素。DSH 用标题的 `scrollWidth - clientWidth` 判断要不要跑跑马灯，标记插在标题里把这 21px 也算进溢出量，悬停/点击时 `placeTitle()` 会把标题滚出裁切框，看起来就是标题没了。
