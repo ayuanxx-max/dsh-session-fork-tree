@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>dsh-session-fork-tree · arrangement fixture</title>
+<style>
+  html,body{margin:0;font:13px/1.5 system-ui,sans-serif}
+  #bar{padding:6px 10px;border-bottom:1px solid #e5e5e5;font-size:12px;color:#555;white-space:pre-wrap}
+  .ws{padding:6px 10px}
+  .wsHead{font-weight:600;color:#444;padding:2px 0}
+  .list{padding:0 6px}
+  .row{display:flex;align-items:center;gap:6px;height:32px;box-sizing:border-box;
+       padding-inline-start:8px;border-inline-start:2px solid transparent}
+  .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .footer{border:0;background:transparent;color:#888;padding:2px 0;text-align:left}
+  .flexcol{display:flex;flex-direction:column}
+  .ovf{margin-left:auto;border:0;background:transparent;color:#888}
+</style>
+</head>
+<body>
+<div id="bar">boot…</div>
+
+<!-- Workspace A: 5 rows, native (DSH) order is deliberately NOT the tree order. -->
+<section class="ws">
+  <div class="wsHead" id="headA">工作区 A</div>
+  <div class="list" id="listA">
+    <div class="row" data-row-key="session:s4"><div data-slot="sidebar.session.row.leading"></div><span class="title">t4</span></div>
+    <div class="row" data-row-key="session:s5"><div data-slot="sidebar.session.row.leading"></div><span class="title">t5</span></div>
+    <div class="row" data-row-key="session:s2"><div data-slot="sidebar.session.row.leading"></div><span class="title">t2</span></div>
+    <div class="row" data-row-key="session:s1"><div data-slot="sidebar.session.row.leading"></div><span class="title">t1</span></div>
+    <div class="row" data-row-key="session:s3"><div data-slot="sidebar.session.row.leading"></div><span class="title">t3</span></div>
+    <button class="footer" id="footA">收起</button>
+  </div>
+</section>
+
+<!-- Workspace B: two group headings inside the list (both non-session, native order
+     must survive), two root sessions, footer last. -->
+<section class="ws">
+  <div class="list" id="listB">
+    <div class="wsHead" id="headB1">置顶</div>
+    <div class="wsHead" id="headB2">工作区 B</div>
+    <div class="row" data-row-key="session:s6"><div data-slot="sidebar.session.row.leading"></div><span class="title">t6</span></div>
+    <button class="footer" id="footB">展开</button>
+    <div class="row" data-row-key="session:s7"><div data-slot="sidebar.session.row.leading"></div><span class="title">t7</span></div>
+  </div>
+</section>
+
+<!-- Workspace C: the DSH 0.2.x *group section* shape — a flex container holding a
+     group heading, the "···" overflow button (aria-haspopup), session rows and a
+     "收起" footer, plus a menu the button opens INSIDE the container.
+     Regression (2026-11-06): the plugin used to band every non-session child into
+     a heading/footer order and convert block containers to flex. The overflow
+     button and the menu it opens are non-session children, so they were re-numbered
+     underneath the open menu and the menu appeared to vanish on click. -->
+<section class="ws">
+  <div class="list flexcol" id="listC">
+    <div class="wsHead" id="headC">分组</div>
+    <button class="ovf" id="ovfC" aria-haspopup="menu" aria-expanded="false">···</button>
+    <div class="row" data-row-key="session:c2"><div data-slot="sidebar.session.row.leading"></div><span class="title">t-c2</span></div>
+    <div class="row" data-row-key="session:c1"><div data-slot="sidebar.session.row.leading"></div><span class="title">t-c1</span></div>
+    <button class="footer" id="footC">收起</button>
+  </div>
+</section>
+
+<script>
+/* ---- result helper (idempotent: verify-page may inject its own) ---- */
+window.__r = window.__r || function (ok, detail) { return { ok: !!ok, detail: detail }; };
+
+window.__errors = [];
+window.__logs = [];
+window.__mountLog = [];
+window.addEventListener('error', function (e) { window.__errors.push(String(e.message)); });
+['warn', 'error', 'info'].forEach(function (lvl) {
+  var orig = console[lvl];
+  console[lvl] = function () {
+    try { window.__logs.push(lvl + ': ' + Array.prototype.map.call(arguments, String).join(' ').slice(0, 240)); } catch (e) {}
+    return orig.apply(console, arguments);
+  };
+});
+
+/* ---- lineage the client consumes (fetch stub + boot snapshot) ---- */
+var LINEAGE = { items: [
+  { id: 's1', parent: null, title: 't1' },
+  { id: 's2', parent: 's1', title: 't2' },
+  { id: 's3', parent: 's2', title: 't3' },
+  { id: 's4', parent: null, title: 't4' },
+  { id: 's5', parent: 's4', title: 't5' },
+  { id: 's6', parent: null, title: 't6' },
+  { id: 's7', parent: null, title: 't7' },
+  { id: 'c1', parent: null, title: 't-c1' },
+  { id: 'c2', parent: 'c1', title: 't-c2' }
+] };
+window.__DSH_FORK_TREE__ = { base: '', items: LINEAGE.items };
+window.__posts = [];
+window.fetch = function (u, opt) {
+  var s = String((u && u.url) || u);
+  if (s.indexOf('lineage.json') >= 0) {
+    return Promise.resolve(new Response(JSON.stringify(LINEAGE), { status: 200, headers: { 'content-type': 'application/json' } }));
+  }
+  if (s.indexOf('style.css') >= 0) {
+    return Promise.resolve(new Response('.ft-cell{color:red}', { status: 200, headers: { 'content-type': 'text/css' } }));
+  }
+  if (s.indexOf('/fork-tree/report') >= 0) {
+    try { window.__posts.push(String((opt && opt.body) || '')); } catch (e) {}
+    return Promise.resolve(new Response('{}', { status: 200 }));
+  }
+  return Promise.resolve(new Response('{}', { status: 200 }));
+};
+
+/* ---- minimal React: function components, useRef, useEffect (run after mount) ---- */
+var pending = [];
+window.React = {
+  createElement: function (type, props) {
+    if (typeof type === 'function') return { comp: type, props: props || {} };
+    return { tag: type, props: props || {} };
+  },
+  useRef: function (init) { return { current: init === undefined ? null : init }; },
+  useEffect: function (fn) { pending.push(fn); }
+};
+
+/* Build the DOM detached and collect effects; the caller attaches the node
+   FIRST and runs the effects afterwards (React commits, then effects run —
+   an effect that runs on a detached node sees closest() === null). */
+var pending = [];
+
+function buildVNode(vnode) {
+  if (vnode.comp) {
+    var outer = pending;
+    pending = [];
+    var child = vnode.comp(vnode.props);
+    var res = buildVNode(child);
+    var mine = pending;
+    pending = outer;
+    if (window.__mountLog) window.__mountLog.push({ id: vnode.props && vnode.props.sessionId, effects: mine.length, ref: !!res.node });
+    return { node: res.node, effects: mine.concat(res.effects) };
+  }
+  var node = document.createElement(vnode.tag);
+  var props = vnode.props;
+  Object.keys(props).forEach(function (k) {
+    if (k === 'ref') {
+      if (props[k] && typeof props[k] === 'object') props[k].current = node;
+      return;
+    }
+    if (k === 'className') { node.className = String(props[k]); return; }
+    node.setAttribute(k, String(props[k]));
+  });
+  return { node: node, effects: [] };
+}
+
+/* ---- cordis context + slot host shim (renders the registered cell into each row) ---- */
+var registered = [];
+window.__ctx = {
+  inject: function (deps, cb) { try { cb(window.__ctx); } catch (e) { window.__errors.push('inject: ' + e); } return function () {}; },
+  get: function () { return undefined; },
+  on: function () { return function () {}; },
+  effect: function () { return function () {}; },
+  emit: function () { return false; },
+  logger: { info: function () {}, warn: function () {}, error: function () {}, debug: function () {} },
+  slots: {
+    inject: function (name, cb) { try { cb(); } catch (e) { window.__errors.push('slots.inject: ' + e); } return function () {}; },
+    register: function (decl, Comp) {
+      registered.push({ name: decl && decl.name, id: decl && decl.id });
+      if (decl && decl.name === 'sidebar.session.row.leading') window.__cell = Comp;
+      return function () {};
+    },
+    declare: function () { return function () {}; },
+    list: function () { return registered.slice(); },
+    get: function () { return undefined; }
+  }
+};
+
+/* ---- boot: client.js calls window.__ModuleLoader__.load({id, factory}) ---- */
+window.__booted = false;
+window.__dummy = null;
+window.__ftDef = null;
+window.__ModuleLoader__ = { load: function (def) { window.__ftDef = def; } };
+try { window.require = function () { return {}; }; } catch (e) {}
+function requireShim(name) {
+  if (name === 'react') return window.React;
+  return {};
+}
+var s = document.createElement('script');
+s.src = '../client.js';
+s.onload = function () {
+  var def = window.__ftDef;
+  if (!def || typeof def.factory !== 'function') { window.__errors.push('module not registered'); return; }
+  var mod = null;
+  try { mod = def.factory(requireShim); } catch (e) { window.__errors.push('factory: ' + e); return; }
+  try { mod.apply(window.__ctx); } catch (e) { window.__errors.push('apply: ' + e); }
+  renderCells();
+  window.__booted = true;
+  document.getElementById('bar').textContent = 'booted rows=' + document.querySelectorAll('[data-row-key]').length;
+};
+s.onerror = function () { window.__errors.push('client.js failed to load'); };
+document.head.appendChild(s);
+
+function renderCells() {
+  var cell = window.__cell;
+  if (typeof cell !== 'function') return;
+  var rows = document.querySelectorAll('[data-row-key^="session:"]');
+  for (var i = 0; i < rows.length; i += 1) {
+    var row = rows[i];
+    var id = String(row.getAttribute('data-row-key')).slice('session:'.length);
+    var seat = row.querySelector('[data-slot="sidebar.session.row.leading"]');
+    if (!seat) continue;
+    var title = (row.querySelector('.title') || {}).textContent || '';
+    try {
+      var built = buildVNode(React.createElement(cell, { sessionId: id, displayTitle: title }));
+      seat.appendChild(built.node);
+      for (var k = 0; k < built.effects.length; k += 1) built.effects[k]();
+    } catch (e) {
+      window.__errors.push('cell ' + id + ': ' + e);
+    }
+  }
+}
+
+/* ---- assertions ---- */
+
+function visualOrder(container) {
+  var kids = Array.prototype.slice.call(container.children);
+  var rows = kids.filter(function (el) {
+    if (!(el.getAttribute && /^session:/.test(String(el.getAttribute('data-row-key') || '')))) return false;
+    if (el.hasAttribute('data-ft-hidden')) return false;
+    if (el.getBoundingClientRect().height === 0) return false;
+    return true;
+  });
+  rows.sort(function (a, b) {
+    return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+  });
+  return rows.map(function (el) { return String(el.getAttribute('data-row-key')).slice('session:'.length); });
+}
+
+function idOf(el) {
+  var k = String((el && el.getAttribute && el.getAttribute('data-row-key')) || '');
+  return /^session:/.test(k) ? k.slice(8) : null;
+}
+
+function chainBefore(list, parent, child) {
+  var p = list.indexOf(parent);
+  var c = list.indexOf(child);
+  return p >= 0 && c >= 0 && p < c;
+}
+
+/** A parent's subtree must be contiguous: parent, then all descendants, then anything else. */
+function subtreeContiguous(list) {
+  for (var i = 0; i < list.length; i += 1) {
+    var id = list[i];
+    var desc = descendants(id, list);
+    if (desc.length === 0) continue;
+    for (var j = 0; j < desc.length; j += 1) {
+      if (list.indexOf(desc[j]) !== i + 1 + j) return { ok: false, parent: id, want: desc[j], at: list.indexOf(desc[j]) };
+    }
+  }
+  return { ok: true };
+}
+
+function parentOf(id) {
+  var items = LINEAGE.items;
+  for (var i = 0; i < items.length; i += 1) if (items[i].id === id) return items[i].parent;
+  return null;
+}
+
+function descendants(id, list) {
+  var out = [];
+  var stack = [id];
+  while (stack.length) {
+    var cur = stack.shift();
+    var kids = list.filter(function (x) { return parentOf(x) === cur; });
+    kids.sort(function (a, b) { return list.indexOf(a) - list.indexOf(b); });
+    for (var i = 0; i < kids.length; i += 1) { out.push(kids[i]); stack.push(kids[i]); }
+  }
+  return out;
+}
+
+window.__ar = {
+  errors: function () { return window.__errors.slice(); },
+  booted: function () { return window.__booted === true; },
+  orderA: function () { return visualOrder(document.getElementById('listA')); },
+  orderB: function () { return visualOrder(document.getElementById('listB')); },
+  orderC: function () { return visualOrder(document.getElementById('listC')); },
+  /** Open the group's "···" menu the way DSH does: a node appended INSIDE the
+      group container, right before the footer. */
+  openMenu: function () {
+    var list = document.getElementById('listC');
+    var ovf = document.getElementById('ovfC');
+    var foot = document.getElementById('footC');
+    var m = document.createElement('div');
+    m.id = 'menuC';
+    m.setAttribute('role', 'menu');
+    m.textContent = '重命名 删除 分叉';
+    m.style.cssText = 'padding:4px;border:1px solid #ddd;background:#fff';
+    list.insertBefore(m, foot);
+    ovf.setAttribute('aria-expanded', 'true');
+    return { present: true, top: Math.round(m.getBoundingClientRect().top) };
+  },
+  menuState: function () {
+    var m = document.getElementById('menuC');
+    var ovf = document.getElementById('ovfC');
+    if (!m) return { present: false };
+    return {
+      present: true,
+      order: m.style.order || '',
+      top: Math.round(m.getBoundingClientRect().top),
+      moved: Math.round(m.getBoundingClientRect().top) - (window.__menuTop || 0),
+      ovfTop: Math.round(ovf.getBoundingClientRect().top),
+      ovfOrder: ovf.style.order || '',
+      ovfMoved: Math.round(ovf.getBoundingClientRect().top) - (window.__ovfTop || 0),
+      containerInline: document.getElementById('listC').style.cssText,
+    };
+  },
+  markMenu: function () { var m = document.getElementById('menuC'); window.__menuTop = m ? Math.round(m.getBoundingClientRect().top) : 0; return window.__menuTop; },
+  markToast: function () { var t = document.getElementById('toastC'); window.__toastTop = t ? Math.round(t.getBoundingClientRect().top) : 0; return window.__toastTop; },
+  /** Snapshot the anchor before any pass, so movement is measurable. */
+  markAnchor: function () {
+    var ovf = document.getElementById('ovfC');
+    window.__ovfTop = Math.round(ovf.getBoundingClientRect().top);
+    return window.__ovfTop;
+  },
+  snapshot: function () {
+    var out = [];
+    var all = document.querySelectorAll('[data-row-key], .footer, .wsHead');
+    for (var i = 0; i < all.length; i += 1) {
+      out.push({ id: String(all[i].id || idOf(all[i]) || all[i].className), order: all[i].style.order || null });
+    }
+    return out;
+  },
+  domShape: function () {
+    return Array.prototype.map.call(document.querySelectorAll('.list > *'), function (el) {
+      return String(el.getAttribute('data-row-key') || el.id || el.className);
+    });
+  },
+  /** Re-run one ordering pass without touching lineage: a childList mutation. */
+  poke: function () {
+    var list = document.getElementById('listA');
+    if (window.__dummy && window.__dummy.parentNode) list.removeChild(window.__dummy);
+    window.__dummy = document.createElement('div');
+    window.__dummy.className = 'ft-probe';
+    list.appendChild(window.__dummy);
+    return 1;
+  },
+  /** Same, but inside the group-section container that hosts a menu. */
+  pokeC: function () {
+    var list = document.getElementById('listC');
+    if (window.__dummyC && window.__dummyC.parentNode) list.removeChild(window.__dummyC);
+    window.__dummyC = document.createElement('div');
+    window.__dummyC.className = 'ft-probe';
+    list.appendChild(window.__dummyC);
+    return 1;
+  },
+  /** A transient host node with no popover markup, dropped BETWEEN rows. */
+  insertToast: function () {
+    var list = document.getElementById('listC');
+    var c1 = document.querySelector('[data-row-key="session:c1"]');
+    var t = document.createElement('div');
+    t.id = 'toastC';
+    t.textContent = '已重命名';
+    t.style.cssText = 'padding:2px;color:#888';
+    list.insertBefore(t, c1.nextSibling);
+    return Math.round(t.getBoundingClientRect().top);
+  },
+  toastState: function () {
+    var t = document.getElementById('toastC');
+    if (!t) return { present: false };
+    return {
+      present: true,
+      order: t.style.order || '',
+      moved: Math.round(t.getBoundingClientRect().top) - (window.__toastTop || 0),
+    };
+  },
+  /** Visible rows (mounted, not collapsed away, with a real box). */
+  visible: function () {
+    return Array.prototype.filter.call(document.querySelectorAll('[data-row-key]'), function (r) {
+      return !r.hasAttribute('data-ft-hidden') && r.getBoundingClientRect().height > 0;
+    }).map(idOf);
+  },
+  toggles: function () {
+    return Array.prototype.map.call(document.querySelectorAll('.ft-toggle'), function (b) {
+      var row = b.closest('[data-row-key]');
+      return { id: idOf(row), text: (b.textContent || '').trim(), open: b.getAttribute('data-open') };
+    });
+  },
+  toggleOf: function (id) {
+    var row = document.querySelector('[data-row-key="session:' + id + '"]');
+    return row ? row.querySelector('.ft-toggle') : null;
+  },
+  clickToggle: function (id) {
+    var b = window.__ar.toggleOf(id);
+    if (!b) return 'missing';
+    b.click();
+    return (b.textContent || '').trim();
+  },
+  /** Click every closed `+` until nothing is collapsed (nested forks too). */
+  expandAll: function () {
+    var clicks = 0;
+    for (var round = 0; round < 6; round += 1) {
+      var closed = Array.prototype.filter.call(document.querySelectorAll('.ft-toggle'), function (b) {
+        return b.getAttribute('data-open') !== '1';
+      });
+      if (closed.length === 0) break;
+      for (var i = 0; i < closed.length; i += 1) { closed[i].click(); clicks += 1; }
+    }
+    return clicks;
+  },
+  /** Mimic DSH promoting the clicked session to the top of its group. */
+  shuffle: function () {
+    var list = document.getElementById('listA');
+    var s3 = document.querySelector('[data-row-key="session:s3"]');
+    list.insertBefore(s3, list.firstChild);
+    return 1;
+  },
+  hiddenRows: function () {
+    var out = [];
+    document.querySelectorAll('[data-row-key]').forEach(function (r) { if (r.hasAttribute('data-ft-hidden')) out.push(idOf(r)); });
+    return out;
+  },
+  identity: function () {
+    var rows = document.querySelectorAll('[data-row-key]');
+    var keep = [];
+    for (var i = 0; i < rows.length; i += 1) keep.push(rows[i]);
+    window.__rowsBefore = keep;
+    return keep.length;
+  },
+  identityKept: function () {
+    var rows = document.querySelectorAll('[data-row-key]');
+    if (!window.__rowsBefore) return { ok: false, detail: 'no snapshot' };
+    for (var i = 0; i < rows.length; i += 1) {
+      if (window.__rowsBefore.indexOf(rows[i]) === -1) return { ok: false, detail: 'row replaced' };
+    }
+    return { ok: true, detail: rows.length };
+  },
+  /** Visual top of a list's children, by id/class, for header & footer assertions. */
+  topsOf: function (listId) {
+    var list = document.getElementById(listId);
+    var out = [];
+    var kids = Array.prototype.slice.call(list.children);
+    kids.forEach(function (el) {
+      if (el.className === 'ft-probe') return;
+      out.push({ key: String(el.getAttribute('data-row-key') || el.id || el.className), top: Math.round(el.getBoundingClientRect().top) });
+    });
+    out.sort(function (a, b) { return a.top - b.top; });
+    return out;
+  },
+  /** Session rows only, ignoring probe/footer/headers (order values, not geometry). */
+  ordersOf: function (listId) {
+    var list = document.getElementById(listId);
+    var out = [];
+    Array.prototype.slice.call(list.children).forEach(function (el) {
+      if (el.className === 'ft-probe') return;
+      out.push(String(el.getAttribute('data-row-key') || el.id) + '=' + (el.style.order || ''));
+    });
+    return out;
+  }
+};
+</script>
+</body>
+</html>

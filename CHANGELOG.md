@@ -1,5 +1,36 @@
 # Changelog · 更新记录
 
+## 0.9.34 — 2026-11-06
+
+- **修复：点开侧栏「···」菜单就消失 / 乱跳（本次 DSH 升级后出现）**。三个原因叠在一起：
+  - 排序把**非会话子节点**一律编号：分组里的「···」溢出按钮拿 `-1`、页脚拿 `n+i`。DSH 0.2.x 的分组容器现在同时装行、溢出按钮和它打开的菜单——菜单是后插入的节点，没有号（默认 `0`），于是排到组首，把「···」锚点整体推下约 30 px，用户看到的就是「点一下菜单没了」。
+  - MutationObserver 只装在**第一个**列表上，还带 150 ms 防抖：新节点在下一帧之前拿不到槽位。现在每个容器各挂一个 observer，用 `queueMicrotask` 合并，**首帧前**完成编排（fixture 断言：菜单第一帧 `order` 已是 `4`）。
+  - 含 popover 的容器改用**槽位保持模式**：只置换会话行的位次，按钮/菜单/toast/分隔线保持宿主给的槽位；容器样式（`display`/`flex-direction`）一根手指都不碰。block 容器仅在无 popover 的普通列表里才转 flex（0.9.32 的路径不变）。
+- **与 DSH 版本解耦**：模式在容器首次出现时判定并**粘住**（banded / inplace），不会中途切换；banded 容器遇到无法归类的行间外来节点只冻结、不重排；不再依赖 `NSkPbW_*` 之类宿主类名，只用 `[data-row-key^="session:"]`、`aria-haspopup`、文本等公开契约。最坏情况是「排序静默降级、装饰照常」，而不是报错或弄坏宿主 UI。
+- **性能（实测，40 行）**：空跑 pass 0.21 ms（200 次 41.7 ms 中位），强制每轮重写 order 0.245 ms/pass（100 次 24.5 ms）。一次交互只跑 1–2 个 pass，远低于一帧 16.7 ms，故「无延迟」。见 `verify/perf.html` + `verify/scenarios/perf.json`。
+- **新增真实 DOM 回归** `verify/menu.html` + `verify/scenarios/menu.json`（11 项）：菜单节点还在、锚点不动、菜单两轮 pass 间 order 不变、第一帧前拿到槽位、行间 toast 不被挤走、容器不被改成 flex、树序仍为 c1→c2。`verify/arrange.html` 13/13 保持全绿。
+- 验证钩子：`window.__ftApply()`（跑一次 pass）、`window.__ftPasses`（pass 计数），供 fixture 与线上排障使用。
+- Fixes the disappearing "···" menu after the DSH sidebar rewrite: non-session children (overflow button, menu) were banded into the order plan and the container's layout was rewritten. Container-hosting-popover groups now use slot-preserving ordering, observers are per-container and microtask-batched (applied before the first frame), and the mode is decided once per container so no upgrade can flip it mid-session.
+
+## 0.9.33 — 2026-11-06
+
+- **分叉默认折叠，点 `+` 才展开**（按用户要求，覆盖 0.9.29 的「默认全展开」）：凡是**真有子行**的会话默认收起，整棵子树隐藏，行尾是 `+`；点开变 `−`，再点收起。没有分叉的会话永远不折叠。
+  - 状态集合从 `collapsed`（记"被收起的"）改成 `expanded`（记"被打开的"）：新出现的分叉默认是关的，不会一启动就刷出一堆子行。
+  - 子行挂载时**顺手给父行补上 `+`**：默认折叠后，父行若不再重渲染，就会出现「子行被藏起来、却没有按钮能展开」的死角。
+  - 正在查看的会话（行上有 `aria-current="true"` / `data-active`）其祖先链自动展开一次，之后用户可以自己收起。
+  - 按钮 `title` 带子行数量：`展开分叉 (2)`。
+- Fixture 扩到 14 项断言：默认只剩根行、`+`/`−` 只出现在有子行的行上、全展开后 7 行可见、收起整棵子树、以及原有排列/顺序/零写入断言。
+- Forks are collapsed by default now: `+` opens a branch, `−` closes it. A session without forks never collapses; the row being viewed auto-opens its ancestors once.
+
+## 0.9.32 — 2026-11-06
+
+- **组标题（非会话行）顺序被写反**：block 分支用递减计数器写 `order = -1, -2, -3…`，而 flex 里数值小的先渲染，所以同一分组里两个以上的标题/按钮会**倒着排**。改为升序负数（`-m … -1`），保持原生相对顺序。
+- **`收起` 页脚改为容器内计算**：删掉全局 `pinFooters()`——它扫描全页 `button/div/span/a`，把命中节点的**任意祖先**（最多 4 层）强行改成 `display:flex`，可能动到整个侧栏滚动容器或分组外框。现在标题、会话、页脚在 `applyOrder` 里一次算清（标题 `-m..-1`、会话 `0..n-1`、页脚 `n..n+m-1`），不再碰容器以外的节点。
+- **不再无脑重排**：以前 block 容器每次都被强转 flex 并整组重写 `order`，即使顺序已经正确；现在先算目标值，只有**真的需要变化**时才转 flex / 写值。已正确时零写入——这是「点一下行跳两下」的另一半原因。
+- **页脚文本匹配收紧**：从 `/收起|折叠|展开|more|less|show/i` 改成锚定整串 `/^(收起|折叠|展开|显示更多|显示更少|Show more|Show less)$/i`，名字里带「展开」的工作区标题不会再被当成页脚排到组尾。
+- **新增真实 DOM 回归**：`verify/arrange.html` + `verify/scenarios/arrange.json`（真实行结构：block 列表、两个组标题、夹在中间的「收起」、分叉树）断言：先序 DFS、子树连续、标题在前且保序、页脚在最后、二次/三次 pass 零写入、节点不被替换、点击把子行顶到组首后仍回到树序。10/10 通过。
+- Group headings were ordered in reverse; footers were pinned by a DOM-wide scan that could restyle the sidebar scroll container; and every pass rewrote `order` even when the tree was already correct. All three are fixed and covered by a real-DOM fixture (10/10).
+
 ## 0.9.31 — 2026-11-06
 
 - **恢复行排序为默认开启**：0.9.30 把它关掉后，子会话只保留缩进而不再回到父会话下方，看起来就是"父子关系全错"。排序是功能本体，必须开；`window.__DSH_FORK_TREE_ORDER__ = false` 可关闭。

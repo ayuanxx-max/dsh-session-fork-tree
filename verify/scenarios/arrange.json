@@ -1,0 +1,64 @@
+{
+  "name": "dsh-session-fork-tree-arrange",
+  "steps": [
+    { "js": "window.__cap={bootToggles:window.__ar.toggles(),bootHidden:window.__ar.hiddenRows(),bootVisible:window.__ar.visible()}; window.__ar.identity()", "waitMs": 700 },
+    { "js": "window.__cap.expandClicks=window.__ar.expandAll()", "waitMs": 450 },
+    { "js": "window.__cap.visibleExpanded=window.__ar.visible(); window.__cap.orderA=window.__ar.orderA(); window.__cap.orderB=window.__ar.orderB(); window.__cap.topsA=window.__ar.topsOf('listA'); window.__cap.topsB=window.__ar.topsOf('listB'); window.__cap.ordersBefore=window.__ar.ordersOf('listA').concat(window.__ar.ordersOf('listB'))", "waitMs": 60 },
+    { "js": "window.__ar.poke()", "waitMs": 400 },
+    { "js": "window.__cap.ordersAfter=window.__ar.ordersOf('listA').concat(window.__ar.ordersOf('listB')); window.__ar.poke()", "waitMs": 400 },
+    { "js": "window.__ar.shuffle()", "waitMs": 450 },
+    { "js": "window.__cap.orderShuffle=window.__ar.orderA()", "waitMs": 60 },
+    { "js": "window.__cap.collapseGlyph=window.__ar.clickToggle('s1')", "waitMs": 300 }
+  ],
+  "checks": [
+    { "name": "booted", "js": "__r(window.__ar.booted(), {errors: window.__ar.errors()})" },
+    { "name": "no-errors", "js": "__r(window.__ar.errors().length === 0, {errors: window.__ar.errors()})" },
+    {
+      "name": "collapsed-by-default",
+      "js": "(function(){var v=window.__cap.bootVisible.slice().sort();var want=['s1','s4','s6','s7'];var h=window.__cap.bootHidden.slice().sort();return __r(v.join(',')===want.join(',')&&h.join(',')==='s2,s3,s5',{visible:v,hidden:h});})()",
+      "note": "a fork starts closed: only roots are shown"
+    },
+    {
+      "name": "fork-markers",
+      "js": "(function(){var t=window.__cap.bootToggles;var ids=t.map(function(x){return x.id}).sort();var allClosed=t.every(function(x){return x.open==='0'&&x.text==='+'});return __r(allClosed&&ids.join(',')==='s1,s2,s4',{toggles:t});})()",
+      "note": "只有真有子行的行才有 +，且默认是 +（关闭）"
+    },
+    {
+      "name": "expand-all-shows-children",
+      "js": "(function(){var v=window.__cap.visibleExpanded.slice().sort();var want=['s1','s2','s3','s4','s5','s6','s7'];return __r(v.join(',')===want.join(',')&&window.__cap.expandClicks>=3,{visible:v,clicks:window.__cap.expandClicks});})()"
+    },
+    {
+      "name": "preorder-dfs",
+      "js": "(function(){var a=window.__cap.orderA;var want=['s4','s5','s1','s2','s3'];return __r(a.join(',')===want.join(','),{got:a,want:want});})()"
+    },
+    {
+      "name": "subtree-contiguous",
+      "js": "(function(){var a=window.__cap.orderA;var b=window.__cap.orderB;var res=[];function P(list,parent,child){return list.indexOf(parent)<list.indexOf(child);}res.push(P(a,'s1','s2'),P(a,'s2','s3'),P(a,'s4','s5'));res.push(a.indexOf('s3')===a.indexOf('s2')+1);res.push(b.indexOf('s7')===b.indexOf('s6')+1);return __r(res.every(Boolean),{a:a,b:b,res:res});})()"
+    },
+    {
+      "name": "heads-first",
+      "js": "(function(){var t=window.__cap.topsB;var keys=t.map(function(x){return x.key});var ok=keys[0]==='headB1'&&keys[1]==='headB2';return __r(ok,{order:keys});})()",
+      "note": "两个组标题必须都在会话行上方，且保持原生相对顺序"
+    },
+    {
+      "name": "footer-last",
+      "js": "(function(){var a=window.__cap.topsA;var b=window.__cap.topsB;return __r(a[a.length-1].key==='footA'&&b[b.length-1].key==='footB',{a:a,b:b});})()"
+    },
+    {
+      "name": "stable-no-churn",
+      "js": "(function(){var before=(window.__cap.ordersBefore||[]).slice().sort();var now=(window.__cap.ordersAfter||[]).slice().sort();var changed=[];for(var i=0;i<now.length;i++){if(now[i]!==before[i])changed.push(before[i]+'->'+now[i]);}return __r(before.length>0&&changed.length===0,{changed:changed,now:now});})()",
+      "note": "已展开且顺序正确时，后续 pass 不得重写任何 order"
+    },
+    { "name": "dom-identity", "js": "(function(){var r=window.__ar.identityKept();return __r(r.ok, r.detail);})()" },
+    {
+      "name": "click-keeps-tree",
+      "js": "(function(){var a=window.__cap.orderShuffle;var want=['s4','s5','s1','s2','s3'];return __r(a.join(',')===want.join(','),{got:a,want:want});})()",
+      "note": "点击把子行顶到组首后，视觉顺序仍是树序"
+    },
+    {
+      "name": "collapse-hides-subtree",
+      "js": "(function(){var h=window.__ar.hiddenRows().slice().sort();var v=window.__ar.visible().slice().sort();return __r(h.join(',')==='s2,s3'&&v.indexOf('s4')>=0&&window.__cap.collapseGlyph==='+',{hidden:h,visible:v,glyph:window.__cap.collapseGlyph});})()",
+      "note": "点 − 收起父行后，整棵子树隐藏，按钮回到 +"
+    }
+  ]
+}

@@ -300,3 +300,25 @@ dsh plugin --profile desktop add "link:$REPO"
 ### License
 
 MIT, see [LICENSE](LICENSE).
+
+## 与 DSH 版本无关的设计（0.9.34）
+
+排序只依赖公开契约，不认宿主类名：
+
+1. 行身份：`[data-row-key^="session:"]`（回退 `#session-*`、`[data-ft-session]`），从不依赖 `NSkPbW_*` / `_root_*` 这类哈希类名。
+2. 排序手段：只写 CSS `order`，永不搬 DOM（0.9.9 之前的 `insertBefore` 会抛 `NotFoundError` 把整个 slot 打崩）。
+3. 容器模式在**首次见到时判定并粘住**：
+   - `banded`：普通列表（无 popover 控件）→ 标题 `-m..-1`、会话 `0..n-1`、页脚 `n..`；block 容器会转一次 flex。
+   - `inplace`：容器里有 `[aria-haspopup]` / `[role=menu]` / `[role=dialog]` 之类宿主控件（DSH 0.2.x 的分组就是这种）→ **只置换会话行的位次**，按钮、菜单、toast、分隔线保持宿主给的槽位，容器样式不碰。
+4. 容器里出现无法归类的行间外来节点时，`banded` 容器**冻结**（不重排），而不是把它挤到组首。
+5. 降级策略：宿主换结构 → 最坏是「排序不生效、缩进和 `+`/`−` 照常」，不会抛错、不会破坏宿主 UI。
+
+## 验证（fixture，无需真人截图）
+
+| 页面 | 场景 | 断言 |
+| --- | --- | --- |
+| `verify/arrange.html` | `verify/scenarios/arrange.json` | 13 项：DFS 序、子树连续、标题在前、页脚在后、零写入、点击后仍回树序、`+`/`−` |
+| `verify/menu.html` | `verify/scenarios/menu.json` | 11 项：菜单不被挤走、锚点不动、首帧前拿到槽位、行间 toast 不动、容器不被改 flex |
+| `verify/perf.html` | `verify/scenarios/perf.json` | 40 行：空跑 pass 0.21 ms、强制重排 0.245 ms/pass（一帧 16.7 ms） |
+
+跑法：`python <repo>/tools/verify-page.py --root . --page verify/menu.html --scenario verify/scenarios/menu.json --out %TEMP%/ft-menu`

@@ -1,0 +1,65 @@
+{
+  "name": "dsh-session-fork-tree-perf",
+  "steps": [
+    {
+      "js": "window.__cap={noop:[], churn:[]}",
+      "waitMs": 50
+    },
+    {
+      "js": "window.__cap.noop.push(window.__ar.perf(200))",
+      "waitMs": 30
+    },
+    {
+      "js": "window.__cap.noop.push(window.__ar.perf(200))",
+      "waitMs": 30
+    },
+    {
+      "js": "window.__cap.noop.push(window.__ar.perf(200))",
+      "waitMs": 30
+    },
+    {
+      "js": "window.__cap.churn.push(window.__ar.perfChurn(100))",
+      "waitMs": 30
+    },
+    {
+      "js": "window.__cap.churn.push(window.__ar.perfChurn(100))",
+      "waitMs": 30
+    },
+    {
+      "js": "window.__cap.churn.push(window.__ar.perfChurn(100))",
+      "waitMs": 30
+    },
+    {
+      "js": "window.__cap.rows=document.querySelectorAll('[data-row-key]').length; window.__cap.order=window.__ar.orderC().length",
+      "waitMs": 30
+    }
+  ],
+  "checks": [
+    {
+      "name": "booted",
+      "js": "__r(window.__ar.booted(), {errors: window.__ar.errors()})"
+    },
+    {
+      "name": "no-errors",
+      "js": "__r(window.__ar.errors().length === 0, {errors: window.__ar.errors()})"
+    },
+    {
+      "name": "rows-40",
+      "js": "__r(window.__cap.rows === 40, {rows: window.__cap.rows})"
+    },
+    {
+      "name": "pass-under-1ms",
+      "js": "(function(){var a=window.__cap.noop.slice().sort(function(x,y){return x-y});var med=a[1];return __r(med/200<1,{runs:a,medianMs:med,perPassMs:Math.round(med/200*1000)/1000});})()",
+      "note": "40 行一次排序 pass 的中位耗时 < 1 ms"
+    },
+    {
+      "name": "churn-under-2ms",
+      "js": "(function(){var a=window.__cap.churn.slice().sort(function(x,y){return x-y});var med=a[1];return __r(med/100<2,{runs:a,medianMs:med,perPassMs:Math.round(med/100*1000)/1000});})()",
+      "note": "强制重排（每轮都写 order）60 行一次 pass < 2 ms"
+    },
+    {
+      "name": "dump",
+      "js": "(function(){return __r(true,{noop:window.__cap.noop,churn:window.__cap.churn})})()"
+    }
+  ]
+}

@@ -77,7 +77,14 @@ window.__ModuleLoader__.load({
     // Collapsed sets, not expanded sets: a fork is VISIBLE by default and only
     // disappears when the user explicitly collapses its parent. Hiding new
     // children by default made sessions look like they had vanished.
-    const collapsed = new Set();
+    // Default is COLLAPSED at every fork point: a session that has forks shows
+    // `+` and its children stay hidden until the user opens it. `expanded`
+    // therefore stores the exceptions (what the user opened), not the closes, so
+    // a brand-new fork shows up closed instead of flooding the sidebar.
+    const expanded = new Set();
+    // Ids we opened automatically (ancestors of the session being viewed). They
+    // are remembered so the user can collapse them again and stay collapsed.
+    const autoExpanded = new Set();
     const wired = new WeakSet();
     const diagnostics = [];
 
@@ -274,38 +281,22 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Keep collapse/expand controls BELOW every session row of their group.
-     * DSH renders its own "收起" node; when the group list is reordered with
-     * CSS `order` that node can end up between sessions, so it is pinned to the
-     * end of the nearest ancestor that actually contains session rows.
+     * True for a collapse/expand control ("收起" / "展开" / "Show more").
+     *
+     * Anchored on purpose: a workspace heading such as "已展开的会话" must stay a
+     * heading. A wrapper that merely CONTAINS such a control still counts, so a
+     * `.list > footerWrap > button` structure is pinned as a footer too.
      */
-    function pinFooters() {
-      try {
-        const nodes = document.querySelectorAll('button,[role="button"],div,span,a');
-        for (const el of nodes) {
-          if (el.children.length > 0) continue;
-          const text = (el.textContent || '').trim();
-          if (!/^(收起|展开|显示更多|显示更少|Show more|Show less)$/i.test(text)) continue;
-          let parent = el.parentElement;
-          let hops = 0;
-          while (parent && hops < 4 && !parent.querySelector('[data-ft-session]')) {
-            parent = parent.parentElement;
-            hops += 1;
-          }
-          if (!parent) continue;
-          const style = getComputedStyle(parent);
-          if (style.display.indexOf('flex') === -1) {
-            parent.style.display = 'flex';
-            parent.style.flexDirection = 'column';
-          }
-          el.style.order = '999999';
-        }
-      } catch (err) {
-        /* footer pinning is best-effort */
-      }
+    const FOOTER_TEXT = /^(收起|折叠|展开|显示更多|显示更少|Show more|Show less)$/i;
+
+    function footerLike(el) {
+      const text = String(el.textContent || '').trim();
+      if (text.length === 0 || text.length > 24) return false;
+      return FOOTER_TEXT.test(text);
     }
 
     function applyOrder() {
+      if (typeof window !== 'undefined') window.__ftPasses = (window.__ftPasses || 0) + 1;
       // Ordering is the point of this plugin: DSH 0.2.2 only nests
       // `origin === 'subagent'` forks, so a user fork otherwise keeps its list
       // position and a child's indent points at a parent far away. Disable with
@@ -377,93 +368,145 @@ window.__ModuleLoader__.load({
         } catch (err) {
           display = '';
         }
-        if (display.indexOf('flex') !== -1) {
-          let same = true;
-          for (let i = 0; i < ordered.length; i += 1) {
-            if (ordered[i].slot.style.order !== String(i)) same = false;
-          }
-          if (!same) {
-            reorderCount += 1;
-            for (let i = 0; i < ordered.length; i += 1) ordered[i].slot.style.order = String(i);
-          }
-        } else {
-          // Version-independent ordering: DSH lists are plain block containers
-          // (newer builds dropped the flex layout), so `order` alone does
-          // nothing. Convert the container to a flex column ONCE, pin every
-          // non-session child to its native slot, and give the session rows the
-          // tree order inside the same slot positions. No node is ever moved,
-          // so React never sees a foreign insertion.
-          let kids = [];
-          try { kids = Array.from(container.children); } catch (err) { continue; }
-          const want = new Set(ordered.map(function (e) { return e.slot; }));
-          const positions = [];
-          for (let i = 0; i < kids.length; i += 1) if (want.has(kids[i])) positions.push(i);
-          if (positions.length !== ordered.length) continue;
-          if (positions.length < 2) continue;
-          container.style.display = 'flex';
-          container.style.flexDirection = 'column';
-          // Non-session children (the "收起" footer control and friends) are
-          // pinned AFTER every session row: pinning them to their native index
-          // let a late session slip below the footer and overflow the group.
-          let maxPos = 0;
-          for (const pos of positions) if (pos > maxPos) maxPos = pos;
-          // Group headers must stay ABOVE their sessions, while a footer like
-          // "收起" must stay BELOW them. Only the footer-like text is pinned to
-          // the end; every other non-session child is pinned to the front.
-          const isFooter = function (el) {
-            const text = String(el.textContent || '').trim();
-            return /收起|折叠|展开|more|less|show/i.test(text);
-          };
-          let head = 0;
-          let tail = 0;
+        let kids = [];
+        try { kids = Array.from(container.children); } catch (err) { continue; }
+        const want = new Set(ordered.map(function (e) { return e.slot; }));
+        const positions = [];
+        for (let i = 0; i < kids.length; i += 1) if (want.has(kids[i])) positions.push(i);
+        if (positions.length !== ordered.length) continue;
+        if (positions.length < 2) continue;
+        const isFlex = display.indexOf('flex') !== -1;
+        // A host node the plugin does not own may live in this container: the
+        // group's "···" overflow button, the menu it opens, a toast, a drag
+        // placeholder. Re-numbering those with `order` is what made a menu hop
+        // out of its anchor and, on the upgraded sidebar, look like it closed on
+        // click. Two rules: never touch such a container's layout, and when the
+        // host node sits BETWEEN rows, only permute the rows themselves.
+        const firstRow = positions[0];
+        const lastRow = positions[positions.length - 1];
+        const modeByContainer = applyOrder.modes || (applyOrder.modes = new WeakMap());
+        let mode = modeByContainer.get(container);
+        if (!mode) {
+          let pop = false;
           for (let i = 0; i < kids.length; i += 1) {
             if (want.has(kids[i])) continue;
-            if (isFooter(kids[i])) {
-              kids[i].style.order = String(maxPos + 1 + tail);
-              tail += 1;
-            } else {
-              head += 1;
-              kids[i].style.order = String(-head);
-            }
+            try {
+              if (kids[i].matches && kids[i].matches('[aria-haspopup],[role="menu"],[role="menuitem"],[role="dialog"]')) { pop = true; break; }
+            } catch (err) { /* detached node */ }
           }
-          let changed = false;
-          for (let i = 0; i < ordered.length; i += 1) {
-            const slot = ordered[i].slot;
-            // Same numbering as the flex branch (0..n-1). Writing the native
-            // child index here made the two branches disagree: the first pass
-            // used native positions, the next pass renumbered to 0..n-1 and
-            // every row jumped — the visible "rows shuffling twice" on click.
-            const value = String(i);
-            if (slot.style.order !== value) { slot.style.order = value; changed = true; }
-          }
-          if (changed) reorderCount += 1;
+          // Sticky: decided once, before any transient node can appear. A group
+          // section that owns a popover control is always slot-preserving, so a
+          // menu opening later never flips the layout maths underneath itself.
+          mode = pop ? 'inplace' : 'banded';
+          modeByContainer.set(container, mode);
         }
+        let interlopers = false;
+        let oddInterlopers = false;
+        for (let i = 0; i < kids.length; i += 1) {
+          if (want.has(kids[i])) continue;
+          if (i > firstRow && i < lastRow) {
+            interlopers = true;
+            if (!footerLike(kids[i])) oddInterlopers = true;
+          }
+        }
+        // Slot-preserving containers are re-planned on every pass: every node the
+        // plugin does not own keeps its rank, so a menu that appears gets its own
+        // slot instead of floating to the top (which is what pushed the anchor
+        // down and made the menu look like it had closed).
+        if (mode === 'banded' && oddInterlopers) continue;
+        const inPlace = mode === 'inplace';
+        if (inPlace && !isFlex) continue;
+        const plan = new Map();
+        if (inPlace) {
+          // Slot-preserving mode: the k-th child keeps rank k, so every node the
+          // plugin does not own stays exactly where the host rendered it, and
+          // only session rows change places.
+          let next = 0;
+          for (let i = 0; i < kids.length; i += 1) {
+            plan.set(want.has(kids[i]) ? ordered[next++].slot : kids[i], String(i));
+          }
+        } else {
+          // Banded mode: headings first, sessions 0..n-1, footers last. Both keep
+          // their native relative order, so each group's values ASCEND.
+          const heads = [];
+          const foots = [];
+          for (let i = 0; i < kids.length; i += 1) {
+            if (want.has(kids[i])) continue;
+            if (footerLike(kids[i])) foots.push(kids[i]);
+            else heads.push(kids[i]);
+          }
+          for (let i = 0; i < heads.length; i += 1) plan.set(heads[i], String(i - heads.length));
+          for (let i = 0; i < ordered.length; i += 1) plan.set(ordered[i].slot, String(i));
+          for (let i = 0; i < foots.length; i += 1) plan.set(foots[i], String(ordered.length + i));
+        }
+        // Write only when the DOM does not already show the tree. Converting an
+        // already-correct block list to flex, or re-writing the same values on
+        // every pass, is what made rows look like they "shuffled twice" on click.
+        const orderOf = function (el) { return el.style.order === '' ? '0' : el.style.order; };
+        let need = !isFlex;
+        for (const [el, value] of plan) {
+          if (orderOf(el) !== value) { need = true; break; }
+        }
+        if (!need) continue;
+        if (!isFlex) {
+          // DSH lists are plain block containers (newer builds dropped the flex
+          // layout), where `order` does nothing. Convert ONCE and drive the whole
+          // group with `order`; no node is ever moved, so React never sees a
+          // foreign insertion. Containers that host popovers never get here.
+          container.style.display = 'flex';
+          container.style.flexDirection = 'column';
+        }
+        let changed = false;
+        for (const [el, value] of plan) {
+          if (el.style.order === value) continue;
+          el.style.order = value;
+          if (want.has(el)) changed = true;
+        }
+        if (changed) reorderCount += 1;
       }
-      pinFooters();
       lastApply = Date.now();
     }
 
-    let observerInstalled = false;
+    if (typeof window !== 'undefined') window.__ftApply = applyOrder;
 
-    /** Observe only the sidebar list, and only for row insertions. */
+    const observedContainers = new WeakSet();
+    let applyScheduled = false;
+
+    /** Coalesce every trigger into one pass before the browser paints. */
+    function scheduleApply() {
+      if (applyScheduled) return;
+      applyScheduled = true;
+      const run = function () {
+        applyScheduled = false;
+        applyOrder();
+      };
+      if (typeof queueMicrotask === 'function') queueMicrotask(run);
+      else Promise.resolve().then(run);
+    }
+
+    /**
+     * Watch EVERY container that holds rows, insertions only. A host node dropped
+     * among the rows (a menu, a toast) must get its slot before paint: left at the
+     * default `order: 0` it sorts to the top of the group, pushes the "···" anchor
+     * down and makes the just-opened menu look like it closed.
+     */
     function installObserver() {
-      if (observerInstalled) return;
+      const dbg = (typeof window !== 'undefined') ? (window.__ftObs = window.__ftObs || { calls: 0, observed: 0, err: '' }) : null;
+      if (dbg) dbg.calls += 1;
       try {
-        const first = rows.values().next().value;
-        const slot = first && first.parentElement;
-        const container = slot && slot.parentElement;
-        if (!container) return;
-        observerInstalled = true;
-        let timer = 0;
-        new MutationObserver(function () {
-          clearTimeout(timer);
-          timer = setTimeout(function () {
-            if (Date.now() - lastApply < 400) return;
-            applyOrder();
-          }, 150);
-        }).observe(container, { childList: true });
+        const seen = new Set();
+        for (const [, row] of rows) {
+          const info = slotOf(row);
+          const container = info && info.container;
+          if (!container || seen.has(container)) continue;
+          seen.add(container);
+          if (observedContainers.has(container)) continue;
+          observedContainers.add(container);
+          if (dbg) dbg.observed += 1;
+          new MutationObserver(scheduleApply).observe(container, { childList: true });
+        }
       } catch (err) {
-        /* observer is an optimisation only */
+        if (dbg) dbg.err = String((err && err.message) || err);
       }
     }
 
@@ -611,11 +654,28 @@ window.__ModuleLoader__.load({
       return count;
     }
 
+    /** The row the conversation pane currently shows, if the row exposes it. */
+    function isActiveRow(row) {
+      try {
+        if (row.getAttribute('aria-current') === 'true') return true;
+        if (row.hasAttribute('data-active')) return true;
+        if (row.querySelector('[aria-current="true"],[data-active="true"]') !== null) return true;
+      } catch (err) {
+        /* optional */
+      }
+      return false;
+    }
+
+    /**
+     * A fork point starts closed; a session without forks never hides anything.
+     * `childCount` only counts mounted child rows, so a fork that lives in
+     * another workspace cannot hide a row that has no `+` to reveal it.
+     */
     function isVisible(id) {
       let parent = parentOf(id);
       let guard = 0;
       while (parent && guard < 12) {
-        if (collapsed.has(parent)) return false;
+        if (childCount(parent) > 0 && !expanded.has(parent)) return false;
         parent = parentOf(parent);
         guard += 1;
       }
@@ -623,6 +683,22 @@ window.__ModuleLoader__.load({
     }
 
     function applyVisibility() {
+      // The session being viewed must not start hidden: open its ancestor chain
+      // once, and only once, so the user can close it again afterwards.
+      for (const [id, row] of rows) {
+        if (!isActiveRow(row)) continue;
+        let parent = parentOf(id);
+        let guard = 0;
+        while (parent && guard < 12) {
+          if (!autoExpanded.has(parent)) {
+            autoExpanded.add(parent);
+            expanded.add(parent);
+            updateToggle(parent);
+          }
+          parent = parentOf(parent);
+          guard += 1;
+        }
+      }
       const shown = [];
       for (const [id, row] of rows) {
         const visible = isVisible(id);
@@ -650,10 +726,11 @@ window.__ModuleLoader__.load({
       if (!row) return;
       const button = toggles.get(row);
       if (button === undefined) return;
-      const open = !collapsed.has(id);
+      const open = expanded.has(id);
       button.textContent = open ? '−' : '+';
       button.setAttribute('data-open', open ? '1' : '0');
-      button.title = open ? '收起分叉' : '展开分叉';
+      const kids = childCount(id);
+      button.title = open ? '收起分叉' : '展开分叉' + (kids > 0 ? ' (' + kids + ')' : '');
       button.setAttribute('aria-expanded', open ? 'true' : 'false');
       button.setAttribute('aria-label', open ? '收起分叉' : '展开分叉');
     }
@@ -718,8 +795,11 @@ window.__ModuleLoader__.load({
         const activate = function (event) {
           event.preventDefault();
           event.stopPropagation();
-          if (collapsed.has(id)) collapsed.delete(id);
-          else collapsed.add(id);
+          // Default is closed, so the button OPENS the branch; clicking again
+          // closes it. Either way it is a user decision, so it leaves
+          // `autoExpanded` alone.
+          if (expanded.has(id)) expanded.delete(id);
+          else expanded.add(id);
           updateToggle(id);
           applyVisibility();
           applyOrder();
@@ -826,8 +906,11 @@ window.__ModuleLoader__.load({
       const row = rowOf(el, title);
       if (row === null) return;
       rows.set(sessionId, row);
-      installObserver();
+      // The attribute must be on the row BEFORE the container lookup: slotOf()
+      // counts children holding a session row, and an unmarked row made it walk
+      // past the real list and observe the wrong node.
       row.setAttribute('data-ft-session', sessionId);
+      installObserver();
       wireHover(row, sessionId);
       // One decoration per row state. React re-renders a row for hover, status
       // and time updates; recomputing geometry and re-measuring text ranges on
@@ -852,6 +935,15 @@ window.__ModuleLoader__.load({
       // which slot hosts us depends on the row's state.
       applySeatOffset(row, depth);
       ensureToggle(row, sessionId);
+      // A newly mounted child turns its parent into a fork point. Give the
+      // parent its `+` right away: with branches collapsed by default, a parent
+      // that never re-renders would otherwise hide this row with no control on
+      // screen to reveal it.
+      const forkParent = parentOf(sessionId);
+      if (forkParent) {
+        const forkRow = rows.get(forkParent);
+        if (forkRow) ensureToggle(forkRow, forkParent);
+      }
       applyVisibility();
       clearTimeout(orderTimer);
       orderTimer = setTimeout(applyOrder, 60);
@@ -939,7 +1031,7 @@ window.__ModuleLoader__.load({
             const el = titleEl(row);
             return el === null ? '' : String(el.textContent || '').replace('+', '').replace('\u2212', '').trim().slice(0, 24);
           })(),
-          open: !collapsed.has(id),
+          open: expanded.has(id),
           children: childCount(id),
           seat: (function () {
             const s = leadingSeat(row);

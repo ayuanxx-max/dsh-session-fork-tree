@@ -1,0 +1,100 @@
+{
+  "name": "dsh-session-fork-tree-menu",
+  "steps": [
+    {
+      "js": "window.__cap={}; window.__ar.expandAll()",
+      "waitMs": 400
+    },
+    {
+      "js": "window.__ar.markAnchor(); window.__ar.openMenu()",
+      "waitMs": 500
+    },
+    {
+      "js": "window.__cap.rafOrder=null; window.__cap.ovfRaf=null; requestAnimationFrame(function(){ var m=document.getElementById('menuC'); window.__cap.rafOrder=m?m.style.order:null; window.__cap.ovfRaf=document.getElementById('ovfC').style.order; }); window.__ar.openMenu()",
+      "waitMs": 250
+    },
+    {
+      "js": "window.__ar.markMenu(); window.__cap.menuA=window.__ar.menuState(); window.__cap.orderC=window.__ar.orderC()",
+      "waitMs": 80
+    },
+    {
+      "js": "window.__ar.shuffle()",
+      "waitMs": 500
+    },
+    {
+      "js": "window.__cap.menuB=window.__ar.menuState(); window.__cap.orderC2=window.__ar.orderC()",
+      "waitMs": 80
+    },
+    {
+      "js": "var m=document.getElementById('menuC'); if(m) m.remove(); window.__ar.insertToast()",
+      "waitMs": 350
+    },
+    {
+      "js": "window.__ar.markToast()",
+      "waitMs": 60
+    },
+    {
+      "js": "window.__ar.shuffle()",
+      "waitMs": 500
+    },
+    {
+      "js": "window.__cap.toast=window.__ar.toastState(); window.__cap.orderC3=window.__ar.orderC()",
+      "waitMs": 80
+    }
+  ],
+  "checks": [
+    {
+      "name": "booted",
+      "js": "__r(window.__ar.booted(), {errors: window.__ar.errors()})"
+    },
+    {
+      "name": "no-errors",
+      "js": "__r(window.__ar.errors().length === 0, {errors: window.__ar.errors()})"
+    },
+    {
+      "name": "group-rows-ordered",
+      "js": "(function(){var a=window.__cap.orderC;return __r(a.join(',')==='c1,c2',{got:a});})()",
+      "note": "分组容器里的父子行仍要按树序"
+    },
+    {
+      "name": "slotted-before-paint",
+      "js": "(function(){var o=window.__cap.rafOrder;return __r(o==='4',{menuOrderAtFirstFrame:o,ovfOrder:window.__cap.ovfRaf});})()",
+      "note": "菜单插入后的第一帧之前就已拿到自己的槽位（order=4），用户看不到它跳到队伍上方那一下"
+    },
+    {
+      "name": "menu-still-open",
+      "js": "(function(){var m=window.__cap.menuB;return __r(!!m&&m.present===true,{menu:m});})()",
+      "note": "排序 pass 之后菜单节点必须还在容器里"
+    },
+    {
+      "name": "menu-not-moved",
+      "js": "(function(){var a=window.__cap.menuA,b=window.__cap.menuB;if(!a||!b||!b.present)return __r(false,{a:a,b:b});return __r(Math.abs(a.moved)<=1&&Math.abs(b.moved)<=1,{movedA:a.moved,movedB:b.moved,orders:[a.order,b.order]});})()",
+      "note": "菜单是宿主节点：任何一次 pass 都不许把它挤出原来的位置"
+    },
+    {
+      "name": "anchor-not-moved",
+      "js": "(function(){var b=window.__cap.menuB;if(!b||!b.present)return __r(false,{b:b});return __r(Math.abs(b.ovfMoved)<=1,{ovfMoved:b.ovfMoved,ovfOrder:b.ovfOrder});})()",
+      "note": "「···」溢出按钮（aria-haspopup）不许被排序改写位置，否则菜单锚点会跳"
+    },
+    {
+      "name": "menu-order-stable",
+      "js": "(function(){var a=window.__cap.menuA,b=window.__cap.menuB;if(!a||!b||!b.present)return __r(false,{});return __r(a.order===b.order,{before:a.order,after:b.order});})()",
+      "note": "两轮 pass 之间菜单的 order 不得变化（变化=它在动）"
+    },
+    {
+      "name": "no-container-restyle",
+      "js": "(function(){var s=(window.__cap.menuB||{}).containerInline||'';return __r(!/display|flex-direction/.test(s),{inline:s});})()",
+      "note": "分组容器由宿主控制：插件不许把它改成 flex"
+    },
+    {
+      "name": "foreign-node-not-moved",
+      "js": "(function(){var t=window.__cap.toast;if(!t||!t.present)return __r(false,{t:t});return __r(Math.abs(t.moved)<=1,{moved:t.moved,order:t.order});})()",
+      "note": "插在行与行之间的宿主节点（toast）不被排序挤走"
+    },
+    {
+      "name": "tree-kept-after-toast",
+      "js": "(function(){var a=window.__cap.orderC3;return __r(a.join(',')==='c1,c2',{got:a});})()",
+      "note": "有外来节点时仍按树序排列"
+    }
+  ]
+}
